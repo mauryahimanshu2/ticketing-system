@@ -14,6 +14,16 @@ const emailEventSchema = new Schema(
       type: String,
       trim: true,
     },
+    idempotencyKey: {
+      type: String,
+      trim: true,
+      select: false,
+    },
+    payloadHash: {
+      type: String,
+      trim: true,
+      select: false,
+    },
     ticketId: {
       type: Schema.Types.ObjectId,
       ref: 'Ticket',
@@ -43,7 +53,16 @@ const emailEventSchema = new Schema(
     },
     emailType: {
       type: String,
-      enum: ['otp', 'welcome', 'ticket_created', 'ticket_reply', 'ticket_notification'],
+      enum: [
+        'otp',
+        'welcome',
+        'ticket_created',
+        'ticket_reply',
+        'ticket_assigned',
+        'ticket_status_update',
+        'ticket_notification',
+        'password_reset',
+      ],
       required: true,
     },
     error: {
@@ -79,6 +98,14 @@ emailEventSchema.index(
 );
 emailEventSchema.index({ direction: 1, status: 1, createdAt: 1 }, { name: 'email_event_queue_status' });
 emailEventSchema.index({ ticketId: 1, createdAt: -1 }, { name: 'email_event_ticket_created' });
+emailEventSchema.index(
+  { idempotencyKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { idempotencyKey: { $type: 'string' } },
+    name: 'email_event_idempotency_unique',
+  },
+);
 
 const EmailEvent = mongoose.models.EmailEvent || mongoose.model('EmailEvent', emailEventSchema);
 
