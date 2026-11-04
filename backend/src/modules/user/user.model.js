@@ -6,10 +6,20 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const sessionSchema = new Schema(
   {
+    sessionId: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     tokenHash: {
       type: String,
       required: true,
       trim: true,
+      select: false,
+    },
+    previousTokenHashes: {
+      type: [String],
+      default: [],
       select: false,
     },
     expiresAt: {
@@ -69,6 +79,21 @@ const userSchema = new Schema(
       default: false,
       required: true,
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
+    blockedAt: {
+      type: Date,
+      default: null,
+    },
+    blockReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: null,
+    },
     otpHash: {
       type: String,
       select: false,
@@ -96,7 +121,9 @@ const userSchema = new Schema(
 
 userSchema.index({ email: 1 }, { unique: true, name: 'user_email_unique' });
 userSchema.index({ role: 1, isVerified: 1 }, { name: 'user_role_verified' });
+userSchema.index({ role: 1, isBlocked: 1, createdAt: -1 }, { name: 'user_role_blocked_created' });
 userSchema.index({ 'sessions.tokenHash': 1 }, { name: 'user_session_token_hash' });
+userSchema.index({ 'sessions.sessionId': 1 }, { name: 'user_session_id' });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 

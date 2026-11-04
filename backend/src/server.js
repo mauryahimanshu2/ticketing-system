@@ -6,6 +6,7 @@ import { connectRedis, redisConnection } from './config/redis.js';
 import emailQueue from './queues/email.queue.js';
 import { createEmailWorker } from './queues/email.worker.js';
 import mongoose from 'mongoose';
+import { validateAuthConfig } from './config/auth.js';
 
 const port = Number(process.env.PORT) || 3000;
 
@@ -14,6 +15,7 @@ let emailWorker;
 let isShuttingDown = false;
 
 try {
+  validateAuthConfig();
   await connectDatabase();
   await connectRedis();
 
@@ -28,8 +30,7 @@ try {
   });
 
 } catch (error) {
-  console.error('Failed to start backend:');
-  console.error(error);
+  console.error(`Failed to start backend (${error.name})`);
 
   await Promise.allSettled([
     emailWorker?.close(),

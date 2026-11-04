@@ -27,6 +27,8 @@ const ticketActivitySchema = new Schema(
         'resolved',
         'closed',
         'reopened',
+        'ticket_blocked',
+        'ticket_unblocked',
       ],
       required: true,
     },

@@ -42,6 +42,15 @@ const ticketSchema = new Schema(
       ref: 'User',
       default: null,
     },
+    assignedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    assignedAt: {
+      type: Date,
+      default: null,
+    },
     category: {
       type: Schema.Types.ObjectId,
       ref: 'Category',
@@ -77,6 +86,29 @@ const ticketSchema = new Schema(
     },
     closedAt: {
       type: Date,
+    },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+      required: true,
+    },
+    blockedAt: {
+      type: Date,
+      default: null,
+    },
+    blockReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: null,
+    },
+    slaSnapshot: {
+      policyId: { type: Schema.Types.ObjectId, ref: 'SlaPolicy', default: null },
+      policyName: { type: String, trim: true, default: null },
+      priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'] },
+      firstResponseMinutes: { type: Number, min: 0 },
+      resolutionMinutes: { type: Number, min: 0 },
+      appliedAt: { type: Date },
     },
   },
   { timestamps: true, collection: 'tickets' },
