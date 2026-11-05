@@ -4,6 +4,10 @@ import test from 'node:test';
 import EmailEvent from '../modules/email/emailEvent.model.js';
 import { decryptEmailPayload, encryptEmailPayload } from '../modules/email/emailPayloadCipher.js';
 import {
+  queueCustomerAssignmentEmail,
+  queueCustomerStatusEmail,
+} from '../modules/ticket/ticket.notifications.js';
+import {
   renderOtpVerificationEmail,
   renderPasswordResetEmail,
   renderTicketAssignedEmail,
@@ -75,6 +79,57 @@ test('escapes dynamic HTML and refuses internal ticket messages', () => {
       }),
     /Internal ticket messages/,
   );
+});
+
+test('customer assignment and status emails include complete safe ticket details', async () => {
+  const ticket = {
+    _id: '000000000000000000000099',
+    ticketNumber: 'TKT-99',
+    subject: 'Cannot sign in',
+    description: 'Login shows an error',
+    priority: 'high',
+    status: 'open',
+    requesterEmail: 'customer@example.com',
+    requesterId: { name: 'Customer' },
+    category: { name: 'Account access' },
+  };
+  const agent = { name: 'Sam Support' };
+  const queued = [];
+  const enqueue = async (payload) => {
+    queued.push(payload);
+    return { status: 'queued' };
+  };
+
+  await queueCustomerAssignmentEmail(ticket, agent, enqueue);
+  await queueCustomerStatusEmail(ticket, 'in_progress', enqueue);
+
+  assert.equal(queued.length, 2);
+  assert.equal(queued[0].recipient, ticket.requesterEmail);
+  assert.equal(queued[0].emailType, 'ticket_assigned');
+  assert.match(queued[0].text, /Sam Support/);
+  assert.match(queued[0].text, /Cannot sign in/);
+  assert.match(queued[0].text, /Login shows an error/);
+  assert.match(queued[0].text, /Account access/);
+  assert.equal(queued[1].emailType, 'ticket_status_update');
+  assert.match(queued[1].text, /Status: in_progress/);
+  assert.match(queued[1].text, /Priority: high/);
+});
+
+test('detailed ticket emails escape customer-controlled HTML', () => {
+  const rendered = renderTicketAssignedEmail({
+    name: '<script>name</script>',
+    ticketNumber: 'T-1',
+    subject: '<img src=x onerror=alert(1)>',
+    description: '<script>description</script>',
+    priority: 'high',
+    status: 'open',
+    categoryName: '<b>category</b>',
+    agentName: '<script>agent</script>',
+  });
+
+  assert.equal(rendered.html.includes('<script>'), false);
+  assert.equal(rendered.html.includes('<img'), false);
+  assert.equal(rendered.html.includes('<b>category</b>'), false);
 });
 
 test('rejects non-HTTPS password reset links', () => {

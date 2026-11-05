@@ -1,5 +1,8 @@
 import bcrypt from 'bcryptjs';
+import { requireAdmin } from '../../utils/authorization.js';
+import { httpError } from '../../utils/http.js';
 import { recordAdminAction } from '../auditLog/auditLog.service.js';
+import { publicUser } from '../user/user.presenter.js';
 import * as repository from './agent.repository.js';
 import {
   validateAgentId,
@@ -11,40 +14,9 @@ import {
 
 const BCRYPT_ROUNDS = 12;
 
-function requestError(message, statusCode) {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  return error;
-}
-
-function requireAdmin(actor) {
-  if (actor?.role !== 'admin') throw requestError('Admin access is required', 403);
-}
-
-function publicAgent(agent) {
-  if (!agent) return null;
-  const value = typeof agent.toObject === 'function' ? agent.toObject() : agent;
-  const allowedFields = [
-    '_id',
-    'name',
-    'email',
-    'phone',
-    'role',
-    'isVerified',
-    'isBlocked',
-    'blockedAt',
-    'blockReason',
-    'createdAt',
-    'updatedAt',
-  ];
-  return Object.fromEntries(allowedFields
-    .filter((field) => value[field] !== undefined)
-    .map((field) => [field, value[field]]));
-}
-
 async function findAgentOr404(agentId) {
   const agent = await repository.findById(agentId);
-  if (!agent) throw requestError('Agent not found', 404);
+  if (!agent) throw httpError('Agent not found', 404);
   return agent;
 }
 
@@ -69,9 +41,9 @@ export async function createAgent(input, actor) {
       targetId: agent._id,
       details: { email: agent.email },
     });
-    return publicAgent(agent);
+    return publicUser(agent);
   } catch (error) {
-    if (error.code === 11000) throw requestError('An account with this email already exists', 409);
+    if (error.code === 11000) throw httpError('An account with this email already exists', 409);
     throw error;
   }
 }
@@ -99,7 +71,7 @@ export async function updateAgent(agentId, input, actor) {
 
   try {
     const agent = await repository.update(id, userUpdates, revokeSessions);
-    if (!agent) throw requestError('Agent not found', 404);
+    if (!agent) throw httpError('Agent not found', 404);
     await recordAdminAction({
       actorId: actor.userId,
       ipAddress: actor.ipAddress,
@@ -108,9 +80,9 @@ export async function updateAgent(agentId, input, actor) {
       targetId: id,
       details: { changedFields: Object.keys(updates) },
     });
-    return publicAgent(agent);
+    return publicUser(agent);
   } catch (error) {
-    if (error.code === 11000) throw requestError('An account with this email already exists', 409);
+    if (error.code === 11000) throw httpError('An account with this email already exists', 409);
     throw error;
   }
 }
@@ -121,7 +93,7 @@ export async function setAgentBlocked(agentId, blocked, input, actor) {
   const reason = blocked ? validateReason(input) : null;
   if (!blocked) validateEmptyBody(input);
   const agent = await repository.setBlocked(id, blocked, reason);
-  if (!agent) throw requestError('Agent not found', 404);
+  if (!agent) throw httpError('Agent not found', 404);
   await recordAdminAction({
     actorId: actor.userId,
     ipAddress: actor.ipAddress,
@@ -130,5 +102,5 @@ export async function setAgentBlocked(agentId, blocked, input, actor) {
     targetId: id,
     details: blocked ? { reason } : {},
   });
-  return publicAgent(agent);
+  return publicUser(agent);
 }

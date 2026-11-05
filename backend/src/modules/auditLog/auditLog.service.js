@@ -1,5 +1,7 @@
 import * as auditRepository from './auditLog.repository.js';
-import mongoose from 'mongoose';
+import { requireAdmin } from '../../utils/authorization.js';
+import { httpError } from '../../utils/http.js';
+import { validateObjectId } from '../../utils/validation.js';
 
 const secretKeys = /password|otp|token|secret|credential/i;
 
@@ -33,31 +35,14 @@ export async function recordAdminAction({
 }
 
 export async function listAuditLogs(query) {
-  if (query?.actorRole !== 'admin') {
-    const error = new Error('Admin access is required');
-    error.statusCode = 403;
-    throw error;
-  }
+  requireAdmin(query);
   const { actorRole, ...filters } = query;
   return auditRepository.listAuditLogs(filters);
 }
 
 export async function getAuditLog(id, actor) {
-  if (actor?.actorRole !== 'admin') {
-    const error = new Error('Admin access is required');
-    error.statusCode = 403;
-    throw error;
-  }
-  if (!mongoose.isValidObjectId(id)) {
-    const error = new Error('A valid logId is required');
-    error.statusCode = 400;
-    throw error;
-  }
-  const log = await auditRepository.findAuditLogById(id);
-  if (!log) {
-    const error = new Error('Audit log not found');
-    error.statusCode = 404;
-    throw error;
-  }
+  requireAdmin(actor);
+  const log = await auditRepository.findAuditLogById(validateObjectId(id, 'logId'));
+  if (!log) throw httpError('Audit log not found', 404);
   return log;
 }

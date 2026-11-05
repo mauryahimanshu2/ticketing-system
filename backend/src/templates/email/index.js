@@ -23,6 +23,31 @@ function layout(title, bodyHtml, bodyText) {
   };
 }
 
+function ticketDetails({
+  ticketNumber,
+  subject,
+  description,
+  priority,
+  status,
+  categoryName,
+  agentName,
+}) {
+  const details = [
+    ['Ticket number', ticketNumber],
+    ['Subject', subject],
+    ['Description', description],
+    ['Priority', priority],
+    ['Status', status],
+    ['Category', categoryName || 'Uncategorized'],
+    ['Assigned agent', agentName || 'Not assigned'],
+  ];
+  const html = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;border-collapse:collapse">${details
+    .map(([label, value]) => `<tr><td style="padding:8px;border:1px solid #dadce0;font-weight:bold;width:150px">${escapeHtml(label)}</td><td style="padding:8px;border:1px solid #dadce0">${paragraph(value || '—')}</td></tr>`)
+    .join('')}</table>`;
+  const text = details.map(([label, value]) => `${label}: ${value || '—'}`).join('\n');
+  return { html, text };
+}
+
 function validateHttpsUrl(value, fieldName) {
   let url;
   try {
@@ -79,20 +104,64 @@ export function renderTicketReplyEmail({ name, ticketNumber, message }) {
   };
 }
 
-export function renderTicketAssignedEmail({ name, ticketNumber, agentName }) {
+export function renderTicketAssignedEmail({
+  name,
+  ticketNumber,
+  subject,
+  description,
+  priority,
+  status,
+  categoryName,
+  agentName,
+}) {
   const title = `Ticket ${ticketNumber} assigned`;
   const assignedAgent = agentName || 'our support team';
+  const details = ticketDetails({
+    ticketNumber,
+    subject,
+    description,
+    priority,
+    status,
+    categoryName,
+    agentName: assignedAgent,
+  });
   return {
     subject: title,
-    ...layout(title, `<p>Hello ${escapeHtml(name || 'there')},</p><p>Your ticket has been assigned to ${escapeHtml(assignedAgent)}.</p>`, `Hello ${name || 'there'},\n\nYour ticket has been assigned to ${assignedAgent}.`),
+    ...layout(
+      title,
+      `<p>Hello ${escapeHtml(name || 'there')},</p><p>Your ticket has been assigned to <strong>${escapeHtml(assignedAgent)}</strong>.</p>${details.html}`,
+      `Hello ${name || 'there'},\n\nYour ticket has been assigned to ${assignedAgent}.\n\n${details.text}`,
+    ),
   };
 }
 
-export function renderTicketStatusUpdateEmail({ name, ticketNumber, status }) {
+export function renderTicketStatusUpdateEmail({
+  name,
+  ticketNumber,
+  subject,
+  description,
+  priority,
+  status,
+  categoryName,
+  agentName,
+}) {
   const title = `Ticket ${ticketNumber} status updated`;
+  const details = ticketDetails({
+    ticketNumber,
+    subject,
+    description,
+    priority,
+    status,
+    categoryName,
+    agentName,
+  });
   return {
     subject: title,
-    ...layout(title, `<p>Hello ${escapeHtml(name || 'there')},</p><p>The status of ticket <strong>${escapeHtml(ticketNumber)}</strong> is now <strong>${escapeHtml(status)}</strong>.</p>`, `Hello ${name || 'there'},\n\nThe status of ticket ${ticketNumber} is now ${status}.`),
+    ...layout(
+      title,
+      `<p>Hello ${escapeHtml(name || 'there')},</p><p>The status of your ticket is now <strong>${escapeHtml(status)}</strong>.</p>${details.html}`,
+      `Hello ${name || 'there'},\n\nThe status of ticket ${ticketNumber} is now ${status}.\n\n${details.text}`,
+    ),
   };
 }
 

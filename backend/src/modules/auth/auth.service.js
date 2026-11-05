@@ -638,18 +638,15 @@ export function createAuthService({
   };
 }
 
-const authService = createAuthService();
-
-export const register = (...args) => authService.register(...args);
-export const verifyRegistrationOtp = (...args) =>
-  authService.verifyRegistrationOtp(...args);
-export const passwordLogin = (...args) => authService.passwordLogin(...args);
-export const requestLoginOtp = (...args) => authService.requestLoginOtp(...args);
-export const verifyLoginOtp = (...args) => authService.verifyLoginOtp(...args);
-export const rotateRefreshToken = (...args) => authService.rotateRefreshToken(...args);
-export const logoutCurrentSession = (...args) =>
-  authService.logoutCurrentSession(...args);
-export const logoutAllSessions = (...args) => authService.logoutAllSessions(...args);
-export const requestPasswordReset = (...args) =>
-  authService.requestPasswordReset(...args);
-export const resetPassword = (...args) => authService.resetPassword(...args);
+export const {
+  register,
+  verifyRegistrationOtp,
+  passwordLogin,
+  requestLoginOtp,
+  verifyLoginOtp,
+  rotateRefreshToken,
+  logoutCurrentSession,
+  logoutAllSessions,
+  requestPasswordReset,
+  resetPassword,
+} = createAuthService();

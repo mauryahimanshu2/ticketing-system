@@ -1,3 +1,6 @@
+import { httpError } from '../../utils/http.js';
+import { rejectUnknownFields } from '../../utils/validation.js';
+
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const allowedRegistrationFields = new Set(['name', 'email', 'phone', 'password']);
 const allowedOtpFields = new Set(['email', 'otp']);
@@ -7,22 +10,10 @@ const allowedRefreshFields = new Set(['refreshToken']);
 const allowedResetPasswordFields = new Set(['email', 'otp', 'newPassword']);
 
 function invalidInput(message) {
-  const error = new Error(message);
-  error.statusCode = 400;
-  return error;
-}
-
-function rejectUnknownFields(input, allowedFields) {
-  const unknownFields = Object.keys(input).filter((field) => !allowedFields.has(field));
-  if (unknownFields.length > 0) {
-    throw invalidInput('Request contains unsupported fields');
-  }
+  return httpError(message, 400);
 }
 
 export function validateRegistrationInput(input) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw invalidInput('Request body must be an object');
-  }
   rejectUnknownFields(input, allowedRegistrationFields);
 
   const name = typeof input.name === 'string' ? input.name.trim() : '';
@@ -53,9 +44,6 @@ export function validateRegistrationInput(input) {
 }
 
 export function validateOtpInput(input) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw invalidInput('Request body must be an object');
-  }
   rejectUnknownFields(input, allowedOtpFields);
 
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
@@ -70,9 +58,6 @@ export function validateOtpInput(input) {
 }
 
 function validateEmail(input, allowedFields = allowedEmailFields) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw invalidInput('Request body must be an object');
-  }
   rejectUnknownFields(input, allowedFields);
 
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
@@ -99,9 +84,6 @@ export function validateEmailInput(input) {
 }
 
 export function validateRefreshTokenInput(input) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw invalidInput('Request body must be an object');
-  }
   rejectUnknownFields(input, allowedRefreshFields);
   if (
     typeof input.refreshToken !== 'string' ||
@@ -115,9 +97,6 @@ export function validateRefreshTokenInput(input) {
 }
 
 export function validateResetPasswordInput(input) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw invalidInput('Request body must be an object');
-  }
   rejectUnknownFields(input, allowedResetPasswordFields);
   const { email, otp } = validateOtpInput({
     email: input.email,
