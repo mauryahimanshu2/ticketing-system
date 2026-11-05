@@ -18,6 +18,7 @@ import {
   getAdminTicket,
   listAdminTickets,
   reassignTicket,
+  requestTicketInformation,
   unblockTicket,
 } from '../ticket/ticket.controller.js';
 import categoryRouter from '../category/category.routes.js';
@@ -44,6 +45,7 @@ router.patch('/tickets/:ticketId/priority', changeTicketPriority);
 router.patch('/tickets/:ticketId/category', changeTicketCategory);
 router.patch('/tickets/:ticketId/block', blockTicket);
 router.patch('/tickets/:ticketId/unblock', unblockTicket);
+router.post('/tickets/:ticketId/request-information', requestTicketInformation);
 
 router.use('/categories', categoryRouter);
 router.use('/sla', slaRouter);

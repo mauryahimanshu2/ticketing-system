@@ -64,3 +64,5 @@ The worker limits general outbound delivery to 100 jobs per minute; OTP enqueue
 requests have a separate limit of three per recipient per 15 minutes. Internal
 ticket messages are rejected by the reply template and enqueue service; ticket
 reply requests must explicitly set `ticketMessageType` to `public`.
+
+For customer replies to agent information requests, see `inbound-email.md`.

@@ -1,0 +1,384 @@
+{
+  "info": {
+    "_postman_id": "ticketing-system-complete-api",
+    "name": "Ticketing System - Complete API",
+    "description": "Complete local API collection. Select the Ticketing System - Local environment before running requests. Protected requests inherit the collection Bearer token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.request.body && pm.request.body.mode === 'raw') {",
+          "  pm.request.headers.upsert({ key: 'Content-Type', value: 'application/json' });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "adminId", "value": "" },
+    { "key": "agentId", "value": "" },
+    { "key": "secondAgentId", "value": "" },
+    { "key": "ticketId", "value": "" },
+    { "key": "categoryId", "value": "" },
+    { "key": "slaId", "value": "" },
+    { "key": "auditLogId", "value": "" },
+    { "key": "userName", "value": "Postman Customer" },
+    { "key": "userEmail", "value": "postman.customer@example.com" },
+    { "key": "userPhone", "value": "+919876543210" },
+    { "key": "userPassword", "value": "CustomerPassword123" },
+    { "key": "newPassword", "value": "NewCustomerPassword123" },
+    { "key": "registrationOtp", "value": "123456" },
+    { "key": "loginOtp", "value": "123456" },
+    { "key": "resetOtp", "value": "123456" },
+    { "key": "adminEmail", "value": "admin@example.com" },
+    { "key": "adminPassword", "value": "AdminPassword123" },
+    { "key": "agentName", "value": "Postman Agent" },
+    { "key": "agentEmail", "value": "postman.agent@example.com" },
+    { "key": "agentPhone", "value": "+919876543211" },
+    { "key": "agentPassword", "value": "AgentPassword123" },
+    { "key": "emailApiKey", "value": "" },
+    { "key": "inboundEmailSecret", "value": "" },
+    { "key": "inboundRecipient", "value": "support+ticket-replace-token@gmail.com" },
+    { "key": "inboundSender", "value": "postman.customer@example.com" },
+    { "key": "inboundMessageId", "value": "postman-inbound-message-1" }
+  ],
+  "item": [
+    {
+      "name": "01 - Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "auth": { "type": "noauth" },
+          "request": { "method": "GET", "url": "{{baseUrl}}/health", "description": "Checks whether the API process is reachable." },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Authentication",
+      "item": [
+        {
+          "name": "Register Customer",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{userName}}\",\n  \"email\": \"{{userEmail}}\",\n  \"phone\": \"{{userPhone}}\",\n  \"password\": \"{{userPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Queues the registration OTP. Copy the OTP from email into registrationOtp."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Registration OTP",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"otp\": \"{{registrationOtp}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/verify-registration-otp"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) {", "  const data = pm.response.json();", "  if (data.user && data.user.id) pm.environment.set('userId', data.user.id);", "}"] } }],
+          "response": []
+        },
+        {
+          "name": "Login Customer with Password",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/login-password"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "  const data = pm.response.json();", "  pm.environment.set('accessToken', data.accessToken);", "  pm.environment.set('refreshToken', data.refreshToken);", "  if (data.user && data.user.id) pm.environment.set('userId', data.user.id);", "}"] } }],
+          "response": []
+        },
+        {
+          "name": "Login Agent with Password",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{agentEmail}}\",\n  \"password\": \"{{agentPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/login-password",
+            "description": "Overwrites accessToken with an agent token."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "  const data = pm.response.json();", "  pm.environment.set('accessToken', data.accessToken);", "  pm.environment.set('refreshToken', data.refreshToken);", "  if (data.user && data.user.id) pm.environment.set('agentId', data.user.id);", "}"] } }],
+          "response": []
+        },
+        {
+          "name": "Login Admin with Password",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/login-password",
+            "description": "Run before admin folders. Overwrites accessToken with an admin token."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "  const data = pm.response.json();", "  pm.environment.set('accessToken', data.accessToken);", "  pm.environment.set('refreshToken', data.refreshToken);", "  if (data.user && data.user.id) pm.environment.set('adminId', data.user.id);", "}"] } }],
+          "response": []
+        },
+        {
+          "name": "Request Login OTP",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/login-otp"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Login OTP",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"otp\": \"{{loginOtp}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/verify-login-otp"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "  const data = pm.response.json();", "  pm.environment.set('accessToken', data.accessToken);", "  pm.environment.set('refreshToken', data.refreshToken);", "}"] } }],
+          "response": []
+        },
+        {
+          "name": "Refresh Tokens",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/refresh-token"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "  const data = pm.response.json();", "  pm.environment.set('accessToken', data.accessToken);", "  pm.environment.set('refreshToken', data.refreshToken);", "}"] } }],
+          "response": []
+        },
+        {
+          "name": "Logout Current Session",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/logout"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout All Sessions",
+          "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/logout-all" },
+          "response": []
+        },
+        {
+          "name": "Forgot Password",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/forgot-password"
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"otp\": \"{{resetOtp}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/reset-password"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Agent Management (Admin)",
+      "item": [
+        {
+          "name": "Create Agent",
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{agentName}}\",\n  \"email\": \"{{agentEmail}}\",\n  \"phone\": \"{{agentPhone}}\",\n  \"password\": \"{{agentPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/agents"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) {", "  const data = pm.response.json();", "  if (data._id) pm.environment.set('agentId', data._id);", "}"] } }],
+          "response": []
+        },
+        { "name": "List Agents", "request": { "method": "GET", "url": "{{baseUrl}}/api/agents?page=1&limit=20&search=&active=true" }, "response": [] },
+        { "name": "Get Agent", "request": { "method": "GET", "url": "{{baseUrl}}/api/agents/{{agentId}}" }, "response": [] },
+        {
+          "name": "Update Agent",
+          "request": {
+            "method": "PATCH",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Postman Agent\",\n  \"phone\": \"{{agentPhone}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/agents/{{agentId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Block Agent",
+          "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Postman RBAC test\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/agents/{{agentId}}/block" },
+          "response": []
+        },
+        {
+          "name": "Unblock Agent",
+          "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/agents/{{agentId}}/unblock" },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Customer Management (Admin)",
+      "item": [
+        { "name": "List Customers", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/users?page=1&limit=20&search=&verified=true&blocked=false" }, "response": [] },
+        { "name": "Get Customer", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/users/{{userId}}" }, "response": [] },
+        { "name": "Block Customer", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Postman policy test\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/users/{{userId}}/block" }, "response": [] },
+        { "name": "Unblock Customer", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/users/{{userId}}/unblock" }, "response": [] }
+      ]
+    },
+    {
+      "name": "05 - Customer and Agent Tickets",
+      "item": [
+        {
+          "name": "Create Ticket (Customer)",
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"subject\": \"Postman test ticket\",\n  \"description\": \"Ticket created from the complete Postman collection.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/tickets",
+            "description": "Requires a customer accessToken."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) {", "  const data = pm.response.json();", "  if (data._id) pm.environment.set('ticketId', data._id);", "}"] } }],
+          "response": []
+        },
+        { "name": "List My or Assigned Tickets", "request": { "method": "GET", "url": "{{baseUrl}}/api/tickets?page=1&limit=20&status=open&priority=medium" }, "response": [] },
+        { "name": "Get Ticket with History", "request": { "method": "GET", "url": "{{baseUrl}}/api/tickets/{{ticketId}}" }, "response": [] },
+        {
+          "name": "Add Public Reply",
+          "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"body\": \"This is a public reply from Postman.\",\n  \"type\": \"public\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/tickets/{{ticketId}}/messages" },
+          "response": []
+        },
+        {
+          "name": "Add Internal Note (Agent/Admin)",
+          "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"body\": \"Internal note visible only to support staff.\",\n  \"type\": \"internal\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/tickets/{{ticketId}}/messages" },
+          "response": []
+        },
+        {
+          "name": "Request More Information (Agent/Admin)",
+          "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"message\": \"Please reply with the transaction reference and exact error text.\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/tickets/{{ticketId}}/request-information" },
+          "response": []
+        },
+        {
+          "name": "Change Ticket Status",
+          "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"status\": \"in_progress\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/tickets/{{ticketId}}/status" },
+          "response": []
+        },
+        {
+          "name": "Change Ticket Priority (Agent/Admin)",
+          "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"priority\": \"high\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/tickets/{{ticketId}}/priority" },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 - Admin Tickets",
+      "item": [
+        { "name": "List All Tickets", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/tickets?page=1&limit=20&search=&status=open&priority=medium" }, "response": [] },
+        {
+          "name": "Create Ticket for Customer",
+          "request": {
+            "method": "POST",
+            "body": { "mode": "raw", "raw": "{\n  \"requesterId\": \"{{userId}}\",\n  \"subject\": \"Admin-created Postman ticket\",\n  \"description\": \"Created by an administrator.\",\n  \"priority\": \"medium\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/admin/tickets"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) {", "  const data = pm.response.json();", "  if (data._id) pm.environment.set('ticketId', data._id);", "}"] } }],
+          "response": []
+        },
+        { "name": "Get Admin Ticket", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/tickets/{{ticketId}}" }, "response": [] },
+        { "name": "Assign Ticket", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"agentId\": \"{{agentId}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/tickets/{{ticketId}}/assign" }, "response": [] },
+        { "name": "Reassign Ticket", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"agentId\": \"{{secondAgentId}}\",\n  \"reason\": \"Workload redistribution\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/tickets/{{ticketId}}/reassign" }, "response": [] },
+        { "name": "Change Status (Admin)", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"status\": \"resolved\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/tickets/{{ticketId}}/status" }, "response": [] },
+        { "name": "Change Priority (Admin)", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"priority\": \"urgent\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/tickets/{{ticketId}}/priority" }, "response": [] },
+        { "name": "Change Category", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"category\": \"{{categoryId}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/tickets/{{ticketId}}/category" }, "response": [] },
+        { "name": "Block Ticket", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Administrative review\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/tickets/{{ticketId}}/block" }, "response": [] },
+        { "name": "Unblock Ticket", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/tickets/{{ticketId}}/unblock" }, "response": [] },
+        { "name": "Request More Information (Admin)", "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"message\": \"Please reply with the missing account details.\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/tickets/{{ticketId}}/request-information" }, "response": [] }
+      ]
+    },
+    {
+      "name": "07 - Categories (Admin)",
+      "item": [
+        {
+          "name": "Create Category",
+          "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Category\",\n  \"description\": \"Category created from Postman.\",\n  \"isActive\": true\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/categories" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) {", "  const data = pm.response.json();", "  if (data._id) pm.environment.set('categoryId', data._id);", "}"] } }],
+          "response": []
+        },
+        { "name": "List Categories", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/categories?page=1&limit=20&search=&active=true" }, "response": [] },
+        { "name": "Get Category", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/categories/{{categoryId}}" }, "response": [] },
+        { "name": "Update Category", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"description\": \"Updated from Postman.\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/categories/{{categoryId}}" }, "response": [] },
+        { "name": "Delete or Deactivate Category", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/admin/categories/{{categoryId}}" }, "response": [] }
+      ]
+    },
+    {
+      "name": "08 - SLA Policies (Admin)",
+      "item": [
+        {
+          "name": "Create SLA Policy",
+          "request": { "method": "POST", "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Urgent SLA\",\n  \"priority\": \"urgent\",\n  \"firstResponseMinutes\": 15,\n  \"resolutionMinutes\": 240,\n  \"isActive\": true\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/sla" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) {", "  const data = pm.response.json();", "  if (data._id) pm.environment.set('slaId', data._id);", "}"] } }],
+          "response": []
+        },
+        { "name": "List SLA Policies", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/sla?page=1&limit=20&priority=urgent&active=true" }, "response": [] },
+        { "name": "Get SLA Policy", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/sla/{{slaId}}" }, "response": [] },
+        { "name": "Update SLA Policy", "request": { "method": "PATCH", "body": { "mode": "raw", "raw": "{\n  \"firstResponseMinutes\": 10,\n  \"resolutionMinutes\": 180\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/admin/sla/{{slaId}}" }, "response": [] },
+        { "name": "Delete or Deactivate SLA Policy", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/admin/sla/{{slaId}}" }, "response": [] }
+      ]
+    },
+    {
+      "name": "09 - Audit Logs (Admin)",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/audit-logs?page=1&limit=20&targetType=ticket&action=" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) {", "  const data = pm.response.json();", "  if (data.items && data.items[0] && data.items[0]._id) pm.environment.set('auditLogId', data.items[0]._id);", "}"] } }],
+          "response": []
+        },
+        { "name": "Get Audit Log", "request": { "method": "GET", "url": "{{baseUrl}}/api/admin/audit-logs/{{auditLogId}}" }, "response": [] }
+      ]
+    },
+    {
+      "name": "10 - Email Service",
+      "item": [
+        {
+          "name": "Queue Outbound Email",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{emailApiKey}}", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"recipient\": \"{{userEmail}}\",\n  \"subject\": \"Postman email test\",\n  \"text\": \"This email was queued from Postman.\",\n  \"emailType\": \"ticket_notification\",\n  \"ticketId\": \"{{ticketId}}\",\n  \"idempotencyKey\": \"postman-email-{{$guid}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/emails"
+          },
+          "response": []
+        },
+        {
+          "name": "Simulate Inbound Customer Reply",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "x-inbound-email-secret", "value": "{{inboundEmailSecret}}", "type": "text" }],
+            "body": { "mode": "raw", "raw": "{\n  \"recipient\": \"{{inboundRecipient}}\",\n  \"sender\": \"{{inboundSender}}\",\n  \"messageId\": \"{{inboundMessageId}}\",\n  \"inReplyTo\": \"postman-original-message\",\n  \"body\": \"The requested transaction reference is TX-POSTMAN-123.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/emails/inbound",
+            "description": "Set inboundRecipient to the emailReplyAddress stored on the ticket and increment inboundMessageId for every new test."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

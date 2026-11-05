@@ -56,5 +56,3 @@ try {
 } finally {
   await mongoose.disconnect();
 }
-
-seedAdmin();

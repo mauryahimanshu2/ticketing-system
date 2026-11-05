@@ -54,6 +54,15 @@ export function validateReply(input) {
   return { body, type };
 }
 
+export function validateInformationRequest(input) {
+  rejectUnknownFields(input, new Set(['message']));
+  const message = typeof input.message === 'string' ? input.message.trim() : '';
+  if (!message || message.length > 20000) {
+    throw httpError('Message is required and must be at most 20000 characters', 400);
+  }
+  return message;
+}
+
 export function validateStatusChange(input) {
   rejectUnknownFields(input, new Set(['status']));
   if (!ticketStatuses.has(input.status)) throw httpError('A valid ticket status is required', 400);

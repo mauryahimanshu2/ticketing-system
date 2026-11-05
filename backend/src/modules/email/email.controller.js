@@ -1,4 +1,5 @@
 import { enqueueEmail } from './email.service.js';
+import { processInboundEmail } from './email.inbound.service.js';
 import { createHandler } from '../../utils/http.js';
 
 const handler = (operation, status = 200) => createHandler(operation, {
@@ -18,3 +19,7 @@ export const createEmail = handler(async (req) => {
       : 'This idempotent email request already exists; use a new key to request another delivery.',
   };
 }, (result) => result.status === 'queued' ? 202 : 200);
+
+export const receiveInboundEmail = handler(
+  (req) => processInboundEmail(req.body),
+);

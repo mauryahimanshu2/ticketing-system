@@ -1,6 +1,7 @@
 import {
   renderTicketAssignedEmail,
   renderTicketCreatedEmail,
+  renderTicketInformationRequestEmail,
   renderTicketReplyEmail,
   renderTicketStatusUpdateEmail,
 } from '../../templates/email/index.js';
@@ -100,6 +101,42 @@ export function queueCustomerStatusEmail(ticket, status, enqueue = enqueueEmail)
     text: rendered.text,
     html: rendered.html,
     emailType: 'ticket_status_update',
+    ticketId: String(ticket._id),
+  });
+}
+
+export function queueInformationRequestEmail(ticket, agent, message, replyTo, enqueue = enqueueEmail) {
+  const rendered = renderTicketInformationRequestEmail({
+    ...customerTicketDetails(ticket, agent.name),
+    status: 'pending',
+    question: message,
+  });
+  return enqueue({
+    recipient: ticket.requesterEmail,
+    replyTo,
+    subject: rendered.subject,
+    text: rendered.text,
+    html: rendered.html,
+    emailType: 'ticket_information_request',
+    ticketId: String(ticket._id),
+  });
+}
+
+export function queueAgentCustomerReplyEmail(ticket, body, enqueue = enqueueEmail) {
+  const agent = ticket.assignedTo;
+  if (!agent?.email) return Promise.resolve(null);
+
+  const rendered = renderTicketReplyEmail({
+    name: agent.name || 'there',
+    ticketNumber: ticket.ticketNumber,
+    message: { body, type: 'public' },
+  });
+  return enqueue({
+    recipient: agent.email,
+    subject: `Customer replied to ticket ${ticket.ticketNumber}`,
+    text: rendered.text,
+    html: rendered.html,
+    emailType: 'ticket_notification',
     ticketId: String(ticket._id),
   });
 }

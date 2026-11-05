@@ -100,6 +100,7 @@ Authenticated ticket endpoints:
 | `GET /api/tickets?page=1&limit=20&status=open&priority=high` | — | Own / assigned / all, by role |
 | `GET /api/tickets/:ticketId` | — | Own / assigned / all, by role; customer view excludes internal messages |
 | `POST /api/tickets/:ticketId/messages` | `{"body":"I have more information."}` | Authorized ticket; agents/admins may use `{"body":"Internal note","type":"internal"}` |
+| `POST /api/tickets/:ticketId/request-information` | `{"message":"Please reply with the transaction reference."}` | Assigned agent or admin; moves the ticket to `pending` and sends a reply-enabled email |
 | `PATCH /api/tickets/:ticketId/status` | `{"status":"closed"}` | Customer limited to close/reopen; agent/admin according to role |
 | `PATCH /api/tickets/:ticketId/priority` | `{"priority":"urgent"}` | Assigned agent or admin |
 
@@ -120,6 +121,7 @@ Admin ticket routes:
 | `PATCH /api/admin/tickets/:ticketId/category` | `{"category":"<categoryId>"}` (use `null` to clear) |
 | `PATCH /api/admin/tickets/:ticketId/block` | `{"reason":"Administrative review"}` |
 | `PATCH /api/admin/tickets/:ticketId/unblock` | `{}` |
+| `POST /api/admin/tickets/:ticketId/request-information` | `{"message":"Please provide the requested details."}` |
 
 Assignment requires an active agent. Assignment/reassignment changes are
 recorded in ticket activity and audit logs, then agent notification emails are

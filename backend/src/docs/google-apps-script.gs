@@ -62,3 +62,76 @@ function doPost(event) {
     return jsonResponse({ success: false, code: 'delivery_failed' });
   }
 }
+
+function processInboundReplies() {
+  var properties = PropertiesService.getScriptProperties();
+  var inboundUrl = String(properties.getProperty('INBOUND_EMAIL_URL') || '').trim();
+  var inboundSecret = String(properties.getProperty('INBOUND_EMAIL_SECRET') || '').trim();
+  var supportEmail = String(properties.getProperty('SUPPORT_EMAIL') || '').trim().toLowerCase();
+
+  if (!inboundUrl || !inboundSecret || !supportEmail) {
+    throw new Error('INBOUND_EMAIL_URL, INBOUND_EMAIL_SECRET, and SUPPORT_EMAIL are required');
+  }
+
+  var supportParts = supportEmail.split('@');
+  if (supportParts.length !== 2) throw new Error('SUPPORT_EMAIL is invalid');
+  var replyPrefix = supportParts[0].split('+')[0] + '+ticket-';
+  var replyDomain = '@' + supportParts[1];
+  var threads = GmailApp.search('is:unread newer_than:14d', 0, 50);
+
+  threads.forEach(function (thread) {
+    thread.getMessages().forEach(function (message) {
+      if (!message.isUnread()) return;
+
+      var recipient = extractEmailAddress(message.getTo());
+      var sender = extractEmailAddress(message.getFrom());
+      var isTicketReply = recipient.indexOf(replyPrefix) === 0 && recipient.endsWith(replyDomain);
+      if (!isTicketReply || !sender || sender === supportEmail) return;
+
+      try {
+        var response = UrlFetchApp.fetch(inboundUrl, {
+          method: 'post',
+          contentType: 'application/json',
+          headers: { 'x-inbound-email-secret': inboundSecret },
+          payload: JSON.stringify({
+            recipient: recipient,
+            sender: sender,
+            messageId: message.getId(),
+            inReplyTo: String(message.getHeader('In-Reply-To') || ''),
+            body: extractLatestReply(message.getPlainBody())
+          }),
+          muteHttpExceptions: true
+        });
+
+        var statusCode = response.getResponseCode();
+        if (statusCode < 500) {
+          message.markRead();
+        } else {
+          console.error('Inbound reply backend returned ' + statusCode);
+        }
+      } catch (error) {
+        console.error('Inbound reply delivery failed');
+      }
+    });
+  });
+}
+
+function extractEmailAddress(value) {
+  var text = String(value || '').trim().toLowerCase();
+  var bracketMatch = text.match(/<([^<>]+)>/);
+  return String(bracketMatch ? bracketMatch[1] : text).trim();
+}
+
+function extractLatestReply(value) {
+  var lines = String(value || '').replace(/\r\n/g, '\n').split('\n');
+  var reply = [];
+
+  for (var index = 0; index < lines.length; index += 1) {
+    var trimmed = lines[index].trim();
+    if (/^On .+wrote:$/i.test(trimmed)) break;
+    if (/^-{2,}\s*Original Message\s*-{2,}$/i.test(trimmed)) break;
+    if (trimmed === '--') break;
+    if (trimmed.indexOf('>') !== 0) reply.push(lines[index]);
+  }
+  return reply.join('\n').trim();
+}

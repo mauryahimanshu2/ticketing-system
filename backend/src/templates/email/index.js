@@ -165,6 +165,37 @@ export function renderTicketStatusUpdateEmail({
   };
 }
 
+export function renderTicketInformationRequestEmail({
+  name,
+  question,
+  ticketNumber,
+  subject,
+  description,
+  priority,
+  status,
+  categoryName,
+  agentName,
+}) {
+  const title = `More information needed for ticket ${ticketNumber}`;
+  const details = ticketDetails({
+    ticketNumber,
+    subject,
+    description,
+    priority,
+    status,
+    categoryName,
+    agentName,
+  });
+  return {
+    subject: `[${ticketNumber}] More information needed`,
+    ...layout(
+      title,
+      `<p>Hello ${escapeHtml(name || 'there')},</p><p><strong>${escapeHtml(agentName || 'Our support team')}</strong> needs the following information:</p><p style="padding:12px;background:#f4f6f8;border-radius:6px">${paragraph(question)}</p><p><strong>Reply directly to this email with text only.</strong></p>${details.html}`,
+      `Hello ${name || 'there'},\n\n${agentName || 'Our support team'} needs the following information:\n\n${question}\n\nReply directly to this email with text only.\n\n${details.text}`,
+    ),
+  };
+}
+
 export function renderPasswordResetEmail({ name, resetUrl }) {
   const title = 'Reset your password';
   const validatedUrl = validateHttpsUrl(resetUrl, 'resetUrl');

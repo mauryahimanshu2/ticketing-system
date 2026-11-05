@@ -8,6 +8,7 @@ const emailTypes = new Set([
   'ticket_reply',
   'ticket_assigned',
   'ticket_status_update',
+  'ticket_information_request',
   'ticket_notification',
   'password_reset',
 ]);

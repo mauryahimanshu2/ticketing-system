@@ -10,14 +10,17 @@ import {
   queueAgentAssignmentEmail,
   queueCustomerAssignmentEmail,
   queueCustomerStatusEmail,
+  queueInformationRequestEmail,
   queueTicketCreatedEmail,
   queueTicketReplyEmail,
 } from './ticket.notifications.js';
+import { createTicketReplyAddress } from './ticket.emailReply.js';
 import {
   validateAssignment,
   validateBlockChange,
   validateCategoryChange,
   validateCreateTicket,
+  validateInformationRequest,
   validatePriorityChange,
   validateReply,
   validateStatusChange,
@@ -172,6 +175,73 @@ export async function replyToTicket(ticketId, input, actor) {
   }
 
   return { message, emailStatus };
+}
+
+export async function requestTicketInformation(ticketId, input, actor) {
+  assertRole(actor);
+  if (!['agent', 'admin'].includes(actor.role)) {
+    throw httpError('Only agents and admins can request additional information', 403);
+  }
+
+  const messageBody = validateInformationRequest(input);
+  const ticket = await getAuthorizedTicket(ticketId, actor);
+  assertCanModify(ticket, actor);
+  if (!ticket.assignedTo) throw httpError('Assign the ticket before requesting additional information', 409);
+  if (ticket.assignedTo.isBlocked) throw httpError('The assigned agent is unavailable', 409);
+  if (['resolved', 'closed'].includes(ticket.status)) {
+    throw httpError('Reopen the ticket before requesting additional information', 409);
+  }
+
+  const sender = await repository.findActor(actor.userId);
+  if (!sender || sender.isBlocked) throw httpError('Account is unavailable', 403);
+
+  const replyTo = ticket.emailReplyAddress || createTicketReplyAddress();
+  const createdAt = new Date();
+  const updated = await repository.updateTicket(ticket._id, {
+    status: 'pending',
+    lastMessageAt: createdAt,
+    emailReplyAddress: replyTo,
+  }, ticketUpdateScope(actor));
+  if (!updated) throw httpError('Ticket changed or is no longer accessible; reload and retry', 409);
+
+  const message = await repository.createMessage({
+    ticketId: ticket._id,
+    senderId: sender._id,
+    senderEmail: sender.email,
+    senderRole: sender.role,
+    type: 'public',
+    body: messageBody,
+    source: 'web',
+  });
+  await repository.createActivity({
+    ticketId: ticket._id,
+    actorId: sender._id,
+    action: 'information_requested',
+    oldValue: ticket.status,
+    newValue: 'pending',
+    metadata: { messageId: message._id, type: 'public' },
+  });
+  if (actor.role === 'admin') {
+    await recordTicketAdminAction(actor, ticket._id, 'ticket_information_requested', {
+      messageId: message._id,
+      assignedAgentId: ticket.assignedTo?._id || ticket.assignedTo,
+    });
+  }
+
+  let emailStatus = 'queued';
+  try {
+    await queueInformationRequestEmail(
+      { ...ticket, status: 'pending', emailReplyAddress: replyTo },
+      sender,
+      messageBody,
+      replyTo,
+    );
+  } catch (queueError) {
+    emailStatus = 'not_queued';
+    console.error(`Ticket information request was not queued (${queueError.name})`);
+  }
+
+  return { ticket: updated, message, emailStatus };
 }
 
 export async function changeTicketStatus(ticketId, input, actor) {

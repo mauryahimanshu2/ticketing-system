@@ -12,6 +12,7 @@ import {
   renderPasswordResetEmail,
   renderTicketAssignedEmail,
   renderTicketCreatedEmail,
+  renderTicketInformationRequestEmail,
   renderTicketReplyEmail,
   renderTicketStatusUpdateEmail,
   renderWelcomeEmail,
@@ -57,6 +58,13 @@ test('renders all email types with HTML and plain text', () => {
     }),
     renderTicketAssignedEmail({ name: 'Alex', ticketNumber: 'T-1', agentName: 'Sam' }),
     renderTicketStatusUpdateEmail({ name: 'Alex', ticketNumber: 'T-1', status: 'pending' }),
+    renderTicketInformationRequestEmail({
+      name: 'Alex',
+      agentName: 'Sam',
+      question: 'What error message do you see?',
+      ticketNumber: 'T-1',
+      status: 'pending',
+    }),
     renderPasswordResetEmail({ name: 'Alex', resetUrl: 'https://support.example.com/reset' }),
   ];
 

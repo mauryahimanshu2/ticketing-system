@@ -11,6 +11,7 @@ export const createTicket = handler((req) => service.createTicket(req.body, acto
 export const listTickets = handler((req) => service.listTickets(req.query, actorFromRequest(req)));
 export const getTicket = handler((req) => service.getTicket(req.params.ticketId, actorFromRequest(req)));
 export const replyToTicket = handler((req) => service.replyToTicket(req.params.ticketId, req.body, actorFromRequest(req)), 201);
+export const requestTicketInformation = handler((req) => service.requestTicketInformation(req.params.ticketId, req.body, actorFromRequest(req)), 201);
 export const changeTicketStatus = handler((req) => service.changeTicketStatus(req.params.ticketId, req.body, actorFromRequest(req)));
 export const changeTicketPriority = handler((req) => service.changeTicketPriority(req.params.ticketId, req.body, actorFromRequest(req)));
 export const changeTicketCategory = handler((req) => service.changeTicketCategory(req.params.ticketId, req.body, actorFromRequest(req)));

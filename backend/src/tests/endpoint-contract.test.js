@@ -88,6 +88,7 @@ const protectedEndpoints = [
   ['PATCH', '/api/admin/tickets/bad-id/category', {}],
   ['PATCH', '/api/admin/tickets/bad-id/block', {}],
   ['PATCH', '/api/admin/tickets/bad-id/unblock', {}],
+  ['POST', '/api/admin/tickets/bad-id/request-information', {}],
   ['GET', '/api/admin/categories'],
   ['POST', '/api/admin/categories', {}],
   ['GET', '/api/admin/categories/bad-id'],
@@ -102,6 +103,7 @@ const protectedEndpoints = [
   ['POST', '/api/tickets', {}],
   ['GET', '/api/tickets/bad-id'],
   ['POST', '/api/tickets/bad-id/messages', {}],
+  ['POST', '/api/tickets/bad-id/request-information', {}],
   ['PATCH', '/api/tickets/bad-id/status', {}],
   ['PATCH', '/api/tickets/bad-id/priority', {}],
 ];
@@ -166,6 +168,7 @@ test('authorized routes reject invalid ids, filters, and bodies before database 
     ['POST', '/api/admin/tickets', {}],
     ['GET', '/api/admin/tickets/bad-id'],
     ['PATCH', '/api/admin/tickets/bad-id/assign', {}],
+    ['POST', '/api/admin/tickets/bad-id/request-information', {}],
     ['POST', '/api/admin/categories', {}],
     ['GET', '/api/admin/categories/bad-id'],
     ['PATCH', '/api/admin/categories/bad-id', {}],
@@ -196,6 +199,10 @@ test('authorized routes reject invalid ids, filters, and bodies before database 
   assert.equal((await request('PATCH', '/api/tickets/bad-id/priority', {
     authenticated: true,
     body: { priority: 'high' },
+  })).status, 403);
+  assert.equal((await request('POST', '/api/tickets/bad-id/request-information', {
+    authenticated: true,
+    body: { message: 'More details needed' },
   })).status, 403);
 });
 
@@ -265,6 +272,7 @@ test('authorized list endpoints return successful pagination responses', async (
 
 test('email endpoint enforces configuration and API key authentication', async () => {
   const originalApiKey = process.env.EMAIL_API_KEY;
+  const originalInboundSecret = process.env.INBOUND_EMAIL_SECRET;
   try {
     delete process.env.EMAIL_API_KEY;
     assert.equal((await request('POST', '/emails', { body: {} })).status, 503);
@@ -278,8 +286,22 @@ test('email endpoint enforces configuration and API key authentication', async (
       body: {},
       headers: { authorization: 'Bearer endpoint-test-api-key' },
     })).status, 400);
+
+    delete process.env.INBOUND_EMAIL_SECRET;
+    assert.equal((await request('POST', '/emails/inbound', { body: {} })).status, 503);
+    process.env.INBOUND_EMAIL_SECRET = 'inbound-test-secret-at-least-32-bytes';
+    assert.equal((await request('POST', '/emails/inbound', {
+      body: {},
+      headers: { 'x-inbound-email-secret': 'wrong-secret' },
+    })).status, 401);
+    assert.equal((await request('POST', '/emails/inbound', {
+      body: {},
+      headers: { 'x-inbound-email-secret': 'inbound-test-secret-at-least-32-bytes' },
+    })).status, 400);
   } finally {
     if (originalApiKey === undefined) delete process.env.EMAIL_API_KEY;
     else process.env.EMAIL_API_KEY = originalApiKey;
+    if (originalInboundSecret === undefined) delete process.env.INBOUND_EMAIL_SECRET;
+    else process.env.INBOUND_EMAIL_SECRET = originalInboundSecret;
   }
 });

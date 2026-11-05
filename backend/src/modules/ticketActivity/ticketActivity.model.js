@@ -24,6 +24,7 @@ const ticketActivitySchema = new Schema(
         'category_changed',
         'customer_reply',
         'agent_reply',
+        'information_requested',
         'resolved',
         'closed',
         'reopened',

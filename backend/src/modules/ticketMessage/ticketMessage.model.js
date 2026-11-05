@@ -4,34 +4,6 @@ const { Schema } = mongoose;
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const attachmentSchema = new Schema(
-  {
-    filename: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 255,
-    },
-    mimeType: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 255,
-    },
-    sizeBytes: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    storageKey: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-  },
-  { _id: false },
-);
-
 const ticketMessageSchema = new Schema(
   {
     ticketId: {
@@ -67,10 +39,6 @@ const ticketMessageSchema = new Schema(
       required: true,
       trim: true,
       minlength: 1,
-    },
-    attachments: {
-      type: [attachmentSchema],
-      default: [],
     },
     source: {
       type: String,

@@ -67,6 +67,18 @@ export async function createMessage(data) {
   return TicketMessage.create(data);
 }
 
+export async function findMessageByEmailId(emailMessageId) {
+  return TicketMessage.findOne({ emailMessageId }).lean();
+}
+
+export async function findTicketByReplyAddress(emailReplyAddress) {
+  return Ticket.findOne({ emailReplyAddress })
+    .populate('requesterId', 'name email')
+    .populate('assignedTo', 'name email role isBlocked')
+    .populate('category', 'name')
+    .lean();
+}
+
 export async function touchLastMessage(ticketId, date) {
   return Ticket.updateOne({ _id: ticketId }, { $set: { lastMessageAt: date } });
 }

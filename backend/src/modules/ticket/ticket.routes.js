@@ -7,6 +7,7 @@ import {
   getTicket,
   listTickets,
   replyToTicket,
+  requestTicketInformation,
 } from './ticket.controller.js';
 
 const router = express.Router();
@@ -15,6 +16,7 @@ router.post('/', authorizeRoles('user'), createTicket);
 router.get('/', listTickets);
 router.get('/:ticketId', getTicket);
 router.post('/:ticketId/messages', replyToTicket);
+router.post('/:ticketId/request-information', authorizeRoles('agent', 'admin'), requestTicketInformation);
 router.patch('/:ticketId/status', changeTicketStatus);
 router.patch('/:ticketId/priority', changeTicketPriority);
 
