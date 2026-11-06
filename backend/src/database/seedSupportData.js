@@ -19,16 +19,16 @@ const defaultCategories = [
 ];
 
 const defaultAgents = [
-  { name: 'Avery Morgan', email: 'avery.morgan@example.com' },
-  { name: 'Jordan Lee', email: 'jordan.lee@example.com' },
-  { name: 'Taylor Brooks', email: 'taylor.brooks@example.com' },
-  { name: 'Riley Patel', email: 'riley.patel@example.com' },
-  { name: 'Casey Nguyen', email: 'casey.nguyen@example.com' },
-  { name: 'Morgan Rivera', email: 'morgan.rivera@example.com' },
-  { name: 'Quinn Bennett', email: 'quinn.bennett@example.com' },
-  { name: 'Jamie Kim', email: 'jamie.kim@example.com' },
-  { name: 'Drew Thompson', email: 'drew.thompson@example.com' },
-  { name: 'Skyler Chen', email: 'skyler.chen@example.com' },
+  { name: 'Aarav Sharma', email: 'aarav.sharma@example.com' },
+  { name: 'Priya Verma', email: 'priya.verma@example.com' },
+  { name: 'Rahul Singh', email: 'rahul.singh@example.com' },
+  { name: 'Ananya Gupta', email: 'ananya.gupta@example.com' },
+  { name: 'Aditya Mishra', email: 'aditya.mishra@example.com' },
+  { name: 'Sneha Patel', email: 'sneha.patel@example.com' },
+  { name: 'Rohan Kumar', email: 'rohan.kumar@example.com' },
+  { name: 'Neha Yadav', email: 'neha.yadav@example.com' },
+  { name: 'Vikram Joshi', email: 'vikram.joshi@example.com' },
+  { name: 'Pooja Maurya', email: 'pooja.maurya@example.com' },
 ];
 
 function getAgentPassword() {

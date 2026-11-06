@@ -8,6 +8,14 @@ import {
   validateCategoryQuery,
 } from './category.validator.js';
 
+export async function listAvailableCategories(query, actor) {
+  if (!['user', 'agent', 'admin'].includes(actor?.role)) {
+    throw httpError('A valid authenticated role is required', 403);
+  }
+  const options = validateCategoryQuery({ ...query, active: 'true' });
+  return repository.listCategories(options);
+}
+
 async function writeAudit(context, action, category, details) {
   return recordAdminAction({
     ...context,

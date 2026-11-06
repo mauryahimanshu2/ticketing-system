@@ -1,14 +1,16 @@
 import express from 'express';
-import { requireAdmin } from '../../middleware/authenticate.js';
+import { authenticate, authorizeRoles, requireAdmin } from '../../middleware/authenticate.js';
 import {
   createCategory,
   deleteCategory,
   getCategory,
+  listAvailableCategories,
   listCategories,
   updateCategory,
 } from './category.controller.js';
 
 const router = express.Router();
+router.get('/available', authenticate, authorizeRoles('user', 'agent', 'admin'), listAvailableCategories);
 router.use(requireAdmin);
 router.post('/', createCategory);
 router.get('/', listCategories);

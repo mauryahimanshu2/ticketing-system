@@ -1,0 +1,213 @@
+.admin-sidebar{background:#13233a}.admin-sidebar .dash-brand>span{color:#13233a}.admin-label{display:flex;align-items:center;gap:7px;margin:0 8px 16px;padding:8px 10px;border-radius:8px;color:#a9d8ff;background:rgba(67,159,230,.12);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.admin-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.admin-stat{padding:17px;border:1px solid #e1eaf1;border-radius:14px;background:#fff}.admin-stat header{display:flex;align-items:center;justify-content:space-between;color:#7890a0}.admin-stat header span{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;color:#0878ce;background:#eaf6fd}.admin-stat strong{display:block;margin-top:12px;font:800 24px Manrope}.admin-stat p{margin:3px 0 0;color:#8496a4;font-size:9px}.admin-table{width:100%;border-collapse:collapse}.admin-table th,.admin-table td{padding:12px 16px;border-bottom:1px solid #edf2f5;font-size:9px;text-align:left}.admin-table th{color:#8799a6;font-size:8px;text-transform:uppercase}.admin-table td strong,.admin-table td small{display:block}.admin-table td small{margin-top:3px;color:#8ca0ae}.admin-table tr:last-child td{border-bottom:0}.admin-link{border:0;color:#0878ce;background:transparent;font-size:9px;font-weight:800}.admin-toolbar{display:flex;gap:8px;padding:14px;border-bottom:1px solid #edf2f5}.admin-toolbar label{min-width:220px;display:flex;align-items:center;gap:7px;padding:0 10px;border:1px solid #dae5eb;border-radius:9px}.admin-toolbar input,.admin-toolbar select{padding:9px;border:1px solid #dae5eb;border-radius:9px;background:#fff;font-size:9px;outline:0}.admin-toolbar label input{width:100%;padding:9px 0;border:0}.admin-toolbar .primary-button{margin-left:auto}.primary-button,.small-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 13px;border:0;border-radius:9px;color:#fff;background:#0878ce;font-size:9px;font-weight:800}.small-button{padding:7px 9px}.small-button.muted{color:#536b7c;background:#edf3f6}.small-button.danger{color:#c84454;background:#fff0f2}.account-status{display:inline-flex;padding:5px 7px;border-radius:7px;color:#16845f;background:#eaf8f2;font-size:8px}.account-status.blocked{color:#c84454;background:#fff0f2}.admin-sections{display:grid;grid-template-columns:1fr 1fr;gap:14px}.settings-list{padding:4px 16px}.settings-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #edf2f5}.settings-row:last-child{border:0}.settings-row>div:first-child{flex:1}.settings-row strong,.settings-row small{display:block}.settings-row strong{font-size:10px;text-transform:capitalize}.settings-row small{margin-top:3px;color:#8799a6;font-size:8px}.settings-row>div:last-child{display:flex;gap:6px}.simple-modal{width:min(460px,100%);padding:22px;border-radius:16px;background:#fff}.simple-modal h2{margin:0 0 17px;font:800 19px Manrope}.simple-modal label{display:block;margin:11px 0;color:#536b7c;font-size:9px;font-weight:700}.simple-modal input,.simple-modal select,.simple-modal textarea{width:100%;margin-top:5px;padding:10px;border:1px solid #dce6ec;border-radius:9px;font-size:10px}.admin-detail-grid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px}.control-stack{display:grid;gap:10px}.control-stack label{display:block;color:#718796;font-size:8px;font-weight:700}.control-stack select,.control-stack input,.control-stack textarea{width:100%;margin-top:5px;padding:9px;border:1px solid #dce6ec;border-radius:8px;background:#fff;font-size:9px}.control-stack button{width:100%}.audit-action{font-weight:800;text-transform:capitalize}.audit-details{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#7d909e}.split-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}@media(max-width:1050px){.admin-grid{grid-template-columns:repeat(2,1fr)}.admin-sections,.admin-detail-grid{grid-template-columns:1fr}}@media(max-width:620px){.admin-grid{grid-template-columns:1fr 1fr}.admin-toolbar{align-items:stretch;flex-direction:column}.admin-toolbar label{min-width:0}.admin-toolbar .primary-button{margin-left:0}.admin-table th:nth-child(3),.admin-table td:nth-child(3){display:none}.admin-sections{grid-template-columns:1fr}}
+
+.admin-label,.admin-stat p{font-size:12px}
+.admin-table th{font-size:12px}
+.admin-table td,.admin-link{font-size:13px}
+.admin-toolbar input,.admin-toolbar select{font-size:13px}
+.primary-button,.small-button{font-size:13px}
+.account-status{font-size:12px}
+.settings-row strong{font-size:14px}
+.settings-row small{font-size:12px}
+.simple-modal label{font-size:13px}
+.simple-modal input,.simple-modal select,.simple-modal textarea{font-size:14px}
+.control-stack label{font-size:12px}
+.control-stack select,.control-stack input,.control-stack textarea{font-size:13px}
+
+/* Larger, higher-contrast data across every admin screen. */
+.admin-app .admin-stat p{
+  color:#52697a;
+  font-size:14px;
+  font-weight:600;
+}
+.admin-app .admin-table th{
+  padding:14px 18px;
+  color:#425b6d;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.06em;
+}
+.admin-app .admin-table td{
+  padding:16px 18px;
+  color:#304b5e;
+  font-size:15px;
+  font-weight:600;
+  line-height:1.45;
+}
+.admin-app .admin-table td strong{
+  color:#142d40;
+  font-size:16px;
+  font-weight:800;
+}
+.admin-app .admin-table td small{
+  margin-top:5px;
+  color:#526f83;
+  font-size:14px;
+  font-weight:600;
+}
+.admin-app .admin-toolbar input,
+.admin-app .admin-toolbar select{
+  color:#304b5e;
+  font-size:14px;
+  font-weight:600;
+}
+.admin-app .admin-toolbar input::placeholder{
+  color:#667f91;
+  opacity:1;
+}
+.admin-app .account-status{
+  padding:6px 9px;
+  font-size:13px;
+  font-weight:800;
+}
+.admin-app .primary-button,
+.admin-app .small-button,
+.admin-app .admin-link{
+  font-size:14px;
+  font-weight:800;
+}
+.admin-app .settings-row{
+  padding:17px 0;
+}
+.admin-app .settings-row strong{
+  color:#142d40;
+  font-size:16px;
+  font-weight:800;
+}
+.admin-app .settings-row small{
+  margin-top:5px;
+  color:#526f83;
+  font-size:14px;
+  font-weight:600;
+  line-height:1.5;
+}
+.admin-app .panel-title p{
+  color:#526f83;
+  font-size:14px;
+  font-weight:600;
+}
+.admin-app .panel-title button{
+  font-size:14px;
+}
+.admin-app .audit-details{
+  color:#425f73;
+  font-size:14px;
+  font-weight:600;
+}
+.admin-app .pagination{
+  color:#425b6d;
+  font-size:14px;
+  font-weight:700;
+}
+.admin-app .control-stack label{
+  color:#425b6d;
+  font-size:13px;
+}
+.admin-app .control-stack select,
+.admin-app .control-stack input,
+.admin-app .control-stack textarea{
+  color:#304b5e;
+  font-size:14px;
+  font-weight:600;
+}
+
+/* Keep every admin input and select the same size as shared filters. */
+.admin-app .admin-toolbar label,
+.admin-app .admin-toolbar select,
+.admin-app .simple-modal input,
+.admin-app .simple-modal select,
+.admin-app .control-stack input,
+.admin-app .control-stack select{
+  min-height:48px;
+  border-radius:11px;
+}
+.admin-app .admin-toolbar label{
+  padding:0 14px;
+}
+.admin-app .admin-toolbar select,
+.admin-app .simple-modal input,
+.admin-app .simple-modal select,
+.admin-app .control-stack input,
+.admin-app .control-stack select{
+  padding:0 14px;
+}
+.admin-app .admin-toolbar input,
+.admin-app .admin-toolbar select,
+.admin-app .simple-modal input,
+.admin-app .simple-modal select,
+.admin-app .simple-modal textarea,
+.admin-app .control-stack input,
+.admin-app .control-stack select,
+.admin-app .control-stack textarea{
+  color:#304b5e;
+  font-size:15px;
+  font-weight:600;
+}
+.admin-app .simple-modal textarea,
+.admin-app .control-stack textarea{
+  min-height:112px;
+  padding:13px 14px;
+  border-radius:11px;
+  line-height:1.5;
+}
+.admin-app .password-field{
+  position:relative;
+  margin-top:5px;
+}
+.admin-app .password-field input{
+  margin-top:0;
+  padding-right:48px;
+}
+.admin-app .password-field button{
+  position:absolute;
+  top:50%;
+  right:8px;
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:0;
+  border-radius:8px;
+  color:#526f83;
+  background:transparent;
+  transform:translateY(-50%);
+}
+.admin-app .password-field button:hover{
+  color:#0878ce;
+  background:#eaf6fd;
+}
+.admin-app .assignment-lock-note{
+  padding:11px 12px;
+  border:1px solid #f2c8ce;
+  border-radius:10px;
+  color:#a82d3e;
+  background:#fff1f3;
+  font-size:13px;
+  font-weight:600;
+  line-height:1.5;
+}
+.admin-app .assignment-lock-note strong{
+  font-weight:800;
+}
+.admin-app .assignment-lock-note.ready{
+  border-color:#b9e4d3;
+  color:#176b50;
+  background:#ecf9f3;
+}
+.admin-sidebar .sidebar-user{
+  margin-top:auto;
+}
+.admin-app .unblock-button{
+  color:#fff;
+  background:#17845f;
+}
+.admin-app .unblock-button:hover{
+  background:#116b4c;
+}
+.admin-app .dialog-copy{
+  margin:-8px 0 15px;
+  color:#526f83;
+  font-size:14px;
+  font-weight:600;
+  line-height:1.5;
+}

@@ -40,8 +40,10 @@ Locked account: **423**.
 { "email": "user@gmail.com" }
 ```
 
-Success: **202** `{"message":"If the account is eligible, a login verification code has been queued."}`.
-The response is generic and only verified accounts receive mail.
+Success: **202** `{"message":"A login verification code has been queued for this customer account."}`.
+The backend looks up the email before storing or sending an OTP. Only verified,
+active customer accounts are eligible. An unknown, staff, unverified, or blocked
+email returns **404** `{"error":"No active customer account was found with this email"}`.
 
 ### Verify login OTP
 

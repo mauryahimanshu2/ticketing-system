@@ -7,6 +7,7 @@ const handler = (operation, status = 200) => createHandler(operation, {
   fallbackMessage: 'Ticket operation could not be completed',
 });
 
+export const getTicketSummary = handler((req) => service.getTicketSummary(actorFromRequest(req)));
 export const createTicket = handler((req) => service.createTicket(req.body, actorFromRequest(req)), 201);
 export const listTickets = handler((req) => service.listTickets(req.query, actorFromRequest(req)));
 export const getTicket = handler((req) => service.getTicket(req.params.ticketId, actorFromRequest(req)));

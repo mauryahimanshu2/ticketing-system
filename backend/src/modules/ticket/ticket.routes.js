@@ -5,6 +5,7 @@ import {
   changeTicketStatus,
   createTicket,
   getTicket,
+  getTicketSummary,
   listTickets,
   replyToTicket,
   requestTicketInformation,
@@ -14,6 +15,7 @@ const router = express.Router();
 router.use(authenticate, authorizeRoles('user', 'agent', 'admin'));
 router.post('/', authorizeRoles('user'), createTicket);
 router.get('/', listTickets);
+router.get('/summary', getTicketSummary);
 router.get('/:ticketId', getTicket);
 router.post('/:ticketId/messages', replyToTicket);
 router.post('/:ticketId/request-information', authorizeRoles('agent', 'admin'), requestTicketInformation);

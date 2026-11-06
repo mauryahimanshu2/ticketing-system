@@ -40,6 +40,26 @@ export async function listTickets({ scope, filter, page, limit }) {
   return { items, page, limit, total, pages: Math.ceil(total / limit) };
 }
 
+export async function getTicketCounts(scope) {
+  const statuses = ['open', 'pending', 'in_progress', 'resolved', 'closed'];
+  const [statusCounts, ticketIds] = await Promise.all([
+    Promise.all(statuses.map((status) => Ticket.countDocuments({ ...scope, status }))),
+    Ticket.find(scope).distinct('_id'),
+  ]);
+  const reopenedTicketIds = ticketIds.length
+    ? await TicketActivity.distinct('ticketId', {
+      ticketId: { $in: ticketIds },
+      action: 'reopened',
+    })
+    : [];
+
+  return {
+    ...Object.fromEntries(statuses.map((status, index) => [status, statusCounts[index]])),
+    reopened: reopenedTicketIds.length,
+    total: statusCounts.reduce((sum, count) => sum + count, 0),
+  };
+}
+
 export async function getTicketHistory(ticketId, { includeInternal = false } = {}) {
   const messageFilter = { ticketId, ...(includeInternal ? {} : { type: 'public' }) };
   const activityFilter = {

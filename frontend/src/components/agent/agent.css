@@ -1,0 +1,44 @@
+.agent-sidebar{background:#075f70}.agent-sidebar .dash-brand>span{color:#075f70}.agent-label{display:flex;align-items:center;gap:7px;margin:0 8px 16px;padding:8px 10px;border-radius:8px;color:#c4f6f0;background:rgba(255,255,255,.1);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.agent-work-grid{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:14px}.queue-guide{height:max-content;padding:18px}.queue-guide h2{margin:0;font:800 13px Manrope}.queue-guide ul{display:grid;gap:10px;margin:14px 0 0;padding:0;list-style:none}.queue-guide li{display:flex;gap:9px;color:#6f8493;font-size:9px;line-height:1.5}.queue-guide li span{flex:0 0 21px;height:21px;display:grid;place-items:center;border-radius:7px;color:#087e8f;background:#e8f8f7;font-weight:800}.agent-ticket-head{display:flex;align-items:flex-end;justify-content:space-between;gap:15px}.agent-ticket-head>div:last-child{display:flex;gap:8px}.agent-control-panel{height:max-content;padding:18px}.agent-control-panel h2{margin:0 0 14px;font:800 13px Manrope}.agent-control-panel label{display:block;margin:11px 0;color:#718796;font-size:8px;font-weight:700}.agent-control-panel select{width:100%;margin-top:5px;padding:10px;border:1px solid #dce6ec;border-radius:8px;background:#fff;font-size:9px}.agent-control-panel button{width:100%;margin-top:8px}@media(max-width:950px){.agent-work-grid{grid-template-columns:1fr}.queue-guide{order:-1}}@media(max-width:620px){.agent-ticket-head{align-items:flex-start;flex-direction:column}}
+
+.agent-label{font-size:12px}
+.queue-guide h2,.agent-control-panel h2{font-size:16px}
+.queue-guide li{font-size:13px}
+.agent-control-panel label{font-size:12px}
+.agent-control-panel select{font-size:13px}
+
+.queue-guide li{
+  color:#425f73;
+  font-size:14px;
+  font-weight:600;
+}
+.agent-control-panel label{
+  color:#425b6d;
+  font-size:13px;
+}
+.agent-control-panel select{
+  color:#304b5e;
+  min-height:48px;
+  padding:0 14px;
+  border-radius:11px;
+  font-size:15px;
+  font-weight:600;
+}
+.agent-control-panel .agent-details-button{
+  width:100%;
+  min-height:46px;
+  margin-top:12px;
+  padding:10px 14px;
+  border:0;
+  border-radius:10px;
+  color:#fff;
+  background:#087e8f;
+  font-size:14px;
+  font-weight:800;
+}
+.agent-control-panel .agent-details-button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+.agent-sidebar .sidebar-user{
+  margin-top:auto;
+}

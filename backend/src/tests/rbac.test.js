@@ -9,7 +9,7 @@ import { createAgent, setAgentBlocked } from '../modules/agent/agent.service.js'
 import { validateAgentInput, validateAgentListQuery } from '../modules/agent/agent.validator.js';
 import { createCategory } from '../modules/category/category.service.js';
 import { createPolicy } from '../modules/sla/sla.service.js';
-import { assignTicket, changeTicketStatus, setTicketBlocked } from '../modules/ticket/ticket.service.js';
+import { assignTicket, changeTicketCategory, changeTicketPriority, changeTicketStatus, setTicketBlocked } from '../modules/ticket/ticket.service.js';
 import User from '../modules/user/user.model.js';
 import Ticket from '../modules/ticket/ticket.model.js';
 import { authenticate, authorizeRoles } from '../middleware/authenticate.js';
@@ -104,7 +104,7 @@ test('duplicate agent creation returns conflict without creating an account', as
   }
 });
 
-test('ticket assignment rejects a non-agent target and blocked tickets reject customer changes', async () => {
+test('ticket assignment rejects invalid targets and closed tickets, while blocked tickets reject customer changes', async () => {
   const originalTicketFindOne = Ticket.findOne;
   const originalUserFindOne = User.findOne;
   const ticketId = '000000000000000000000011';
@@ -127,12 +127,47 @@ test('ticket assignment rejects a non-agent target and blocked tickets reject cu
 
     Ticket.findOne = () => ({
       populate() { return this; },
+      lean: async () => ({ ...ticket, status: 'closed' }),
+    });
+    await assert.rejects(assignTicket(
+      ticketId,
+      { agentId },
+      { userId: '000000000000000000000001', role: 'admin' },
+    ), { statusCode: 409 });
+
+    Ticket.findOne = () => ({
+      populate() { return this; },
+      lean: async () => ({ ...ticket, status: 'open', isBlocked: true }),
+    });
+    await assert.rejects(assignTicket(
+      ticketId,
+      { agentId },
+      { userId: '000000000000000000000001', role: 'admin' },
+    ), { statusCode: 423 });
+
+    Ticket.findOne = () => ({
+      populate() { return this; },
       lean: async () => ({ ...ticket, isBlocked: true }),
     });
     await assert.rejects(changeTicketStatus(
       ticketId,
       { status: 'closed' },
       { userId: ticket.requesterId, role: 'user' },
+    ), { statusCode: 423 });
+    await assert.rejects(changeTicketStatus(
+      ticketId,
+      { status: 'open' },
+      { userId: '000000000000000000000001', role: 'admin' },
+    ), { statusCode: 423 });
+    await assert.rejects(changeTicketPriority(
+      ticketId,
+      { priority: 'high' },
+      { userId: '000000000000000000000001', role: 'admin' },
+    ), { statusCode: 423 });
+    await assert.rejects(changeTicketCategory(
+      ticketId,
+      { category: null },
+      { userId: '000000000000000000000001', role: 'admin' },
     ), { statusCode: 423 });
   } finally {
     Ticket.findOne = originalTicketFindOne;

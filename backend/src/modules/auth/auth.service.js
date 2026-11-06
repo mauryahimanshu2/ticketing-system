@@ -25,6 +25,10 @@ const OTP_TTL_SECONDS = 10 * 60;
 const AUTH_LOCK_TTL_MS = 30 * 1000;
 const BCRYPT_ROUNDS = 12;
 
+function otpLimitsEnabled() {
+  return process.env.OTP_LIMITS_ENABLED !== 'false';
+}
+
 const rateLimitScript = `
   local count = redis.call('INCR', KEYS[1])
   if count == 1 then
@@ -161,6 +165,8 @@ export function createAuthService({
   }
 
   async function enforceOtpRequestLimits(redis, flow, email, ipAddress) {
+    if (!otpLimitsEnabled()) return;
+
     await enforceRateLimit(
       redis,
       `${flowKeys(flow, email).rate}:email`,
@@ -188,7 +194,7 @@ export function createAuthService({
     await redis.eval(releaseLockScript, 1, key, token);
   }
 
-  async function queueOtpEmail({ email, name, otp }) {
+  async function queueOtpEmail({ flow, email, name, otp }) {
     const rendered = renderOtpVerificationEmail({
       name,
       otp,
@@ -200,7 +206,7 @@ export function createAuthService({
       subject: rendered.subject,
       text: rendered.text,
       html: rendered.html,
-      emailType: 'otp',
+      emailType: flow === 'password-reset' ? 'password_reset' : 'otp',
       idempotencyKey: randomUUID(),
     });
   }
@@ -267,12 +273,16 @@ export function createAuthService({
 
       try {
         await queueOtpEmail({
+          flow,
           email,
           name: typeof recipient === 'object' ? recipient.name : name,
           otp,
         });
       } catch (error) {
         await removePending(redis, keys);
+        if (error.statusCode) {
+          throw createAuthError(error.message, error.statusCode);
+        }
         throw createAuthError('Verification email could not be queued', 503);
       }
 
@@ -291,10 +301,12 @@ export function createAuthService({
 
     const stored = JSON.parse(storedJson);
     if (!(await passwordHasher.compare(otp, stored.otpHash))) {
-      const attempts = await redis.incr(keys.attempts);
-      if (attempts >= MAX_OTP_ATTEMPTS) {
-        await removePending(redis, keys);
-        throw createAuthError('Maximum OTP attempts exceeded', 429);
+      if (otpLimitsEnabled()) {
+        const attempts = await redis.incr(keys.attempts);
+        if (attempts >= MAX_OTP_ATTEMPTS) {
+          await removePending(redis, keys);
+          throw createAuthError('Maximum OTP attempts exceeded', 429);
+        }
       }
       throw createAuthError('OTP is invalid or expired', 400);
     }
@@ -354,7 +366,10 @@ export function createAuthService({
       ipAddress: context.ipAddress,
       shouldSend: async () => {
         const user = await repository.findUserByEmailForAuth(email);
-        return user?.role === 'user' && user.isVerified && !user.isBlocked ? user : null;
+        if (!user || user.role !== 'user' || !user.isVerified || user.isBlocked) {
+          throw createAuthError('No active customer account was found with this email', 404);
+        }
+        return user;
       },
     });
     return { status: 'accepted' };
@@ -585,10 +600,12 @@ export function createAuthService({
 
       const matches = await passwordHasher.compare(otp, pending.otpHash);
       if (!matches) {
-        const attempts = await redis.incr(keys.attempts);
-        if (attempts >= MAX_OTP_ATTEMPTS) {
-          await removePending(redis, keys);
-          throw new AuthError('Maximum OTP attempts exceeded; start registration again', 429);
+        if (otpLimitsEnabled()) {
+          const attempts = await redis.incr(keys.attempts);
+          if (attempts >= MAX_OTP_ATTEMPTS) {
+            await removePending(redis, keys);
+            throw new AuthError('Maximum OTP attempts exceeded; start registration again', 429);
+          }
         }
         throw new AuthError('Invalid OTP', 400);
       }

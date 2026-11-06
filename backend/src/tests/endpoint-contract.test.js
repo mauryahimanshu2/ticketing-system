@@ -100,6 +100,8 @@ const protectedEndpoints = [
   ['PATCH', '/api/admin/sla/bad-id', {}],
   ['DELETE', '/api/admin/sla/bad-id'],
   ['GET', '/api/tickets'],
+  ['GET', '/api/tickets/summary'],
+  ['GET', '/api/categories/available'],
   ['POST', '/api/tickets', {}],
   ['GET', '/api/tickets/bad-id'],
   ['POST', '/api/tickets/bad-id/messages', {}],
@@ -188,6 +190,7 @@ test('authorized routes reject invalid ids, filters, and bodies before database 
   const invalidTicketRequests = [
     ['GET', '/api/tickets?limit=0'],
     ['POST', '/api/tickets', {}],
+    ['POST', '/api/tickets', { subject: 'Missing category', description: 'Category must be required.' }],
     ['GET', '/api/tickets/bad-id'],
     ['POST', '/api/tickets/bad-id/messages', {}],
     ['PATCH', '/api/tickets/bad-id/status', {}],
@@ -225,6 +228,7 @@ test('authorized list endpoints return successful pagination responses', async (
     limit() { return this; },
     populate() { return this; },
     lean: async () => [],
+    distinct: async () => [],
   });
 
   User.aggregate = async () => [];
@@ -248,6 +252,7 @@ test('authorized list endpoints return successful pagination responses', async (
       '/api/admin/categories',
       '/api/admin/sla',
       '/api/tickets',
+      '/api/categories/available',
     ];
     const expected = { items: [], page: 1, limit: 20, total: 0, pages: 0 };
 
@@ -256,6 +261,18 @@ test('authorized list endpoints return successful pagination responses', async (
       assert.equal(response.status, 200, `GET ${path}`);
       assert.deepEqual(await response.json(), expected, `GET ${path}`);
     }
+
+    const summaryResponse = await request('GET', '/api/tickets/summary', { authenticated: true });
+    assert.equal(summaryResponse.status, 200);
+    assert.deepEqual(await summaryResponse.json(), {
+      open: 0,
+      pending: 0,
+      in_progress: 0,
+      resolved: 0,
+      closed: 0,
+      reopened: 0,
+      total: 0,
+    });
   } finally {
     User.aggregate = originals.userAggregate;
     User.countDocuments = originals.userCount;

@@ -47,7 +47,7 @@ export const loginWithPassword = handler((req) => passwordLogin(req.body, reques
 export const requestLoginOtpCode = handler(async (req) => {
   await requestLoginOtp(req.body, requestContext(req));
   return {
-    message: 'If the account is eligible, a login verification code has been queued.',
+    message: 'A login verification code has been queued for this customer account.',
   };
 }, 202);
 

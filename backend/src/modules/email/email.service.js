@@ -36,6 +36,8 @@ function fingerprintPayload(payload) {
 }
 
 async function enforceOtpRateLimit(recipient) {
+  if (process.env.OTP_LIMITS_ENABLED === 'false') return;
+
   const recipientHash = hash(recipient);
   const count = await redisConnection.eval(
     otpRateLimitScript,

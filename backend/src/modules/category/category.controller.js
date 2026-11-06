@@ -1,5 +1,5 @@
 import * as service from './category.service.js';
-import { adminContextFromRequest, createHandler } from '../../utils/http.js';
+import { actorFromRequest, adminContextFromRequest, createHandler } from '../../utils/http.js';
 
 const handler = (operation, status = 200) => createHandler(operation, {
   status,
@@ -8,6 +8,7 @@ const handler = (operation, status = 200) => createHandler(operation, {
 });
 
 export const createCategory = handler((req) => service.createCategory(req.body, adminContextFromRequest(req)), 201);
+export const listAvailableCategories = handler((req) => service.listAvailableCategories(req.query, actorFromRequest(req)));
 export const listCategories = handler((req) => service.listCategories(req.query, adminContextFromRequest(req)));
 export const getCategory = handler((req) => service.getCategory(req.params.categoryId, adminContextFromRequest(req)));
 export const updateCategory = handler((req) => service.updateCategory(req.params.categoryId, req.body, adminContextFromRequest(req)));

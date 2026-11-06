@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ticketing_system';
+const mongoUri = process.env.MONGODB_URI;
 
 export default async function connectDatabase() {
   await mongoose.connect(mongoUri);

@@ -306,6 +306,35 @@ test('wrong OTP is rejected and registration is removed after five attempts', as
   assert.equal(users.size, 0);
 });
 
+test('OTP request and verification limits can be disabled for local development', async () => {
+  const originalValue = process.env.OTP_LIMITS_ENABLED;
+  process.env.OTP_LIMITS_ENABLED = 'false';
+  try {
+    const { service, users } = createHarness();
+    await service.register(validRegistration);
+
+    for (let attempt = 0; attempt < 7; attempt += 1) {
+      await assert.rejects(
+        service.verifyRegistrationOtp({ email: validRegistration.email, otp: '000000' }),
+        { statusCode: 400 },
+      );
+    }
+
+    await service.verifyRegistrationOtp({
+      email: validRegistration.email,
+      otp: '123456',
+    });
+    assert.equal(users.size, 1);
+
+    for (let request = 0; request < 7; request += 1) {
+      await service.requestPasswordReset({ email: validRegistration.email });
+    }
+  } finally {
+    if (originalValue === undefined) delete process.env.OTP_LIMITS_ENABLED;
+    else process.env.OTP_LIMITS_ENABLED = originalValue;
+  }
+});
+
 test('expired pending registration cannot be verified', async () => {
   const { service, redis } = createHarness();
   await service.register(validRegistration);
@@ -555,7 +584,14 @@ test('blocked accounts cannot log in or refresh, and only customers can use OTP 
     service.passwordLogin({ email: blockedUser.email, password: 'StrongPassword123' }),
     { statusCode: 403 },
   );
-  await service.requestLoginOtp({ email: agent.email });
+  await assert.rejects(
+    service.requestLoginOtp({ email: agent.email }),
+    { statusCode: 404 },
+  );
+  await assert.rejects(
+    service.requestLoginOtp({ email: blockedUser.email }),
+    { statusCode: 404 },
+  );
   await service.requestPasswordReset({ email: agent.email });
   assert.equal(emails.length, 0);
 
@@ -570,6 +606,27 @@ test('blocked accounts cannot log in or refresh, and only customers can use OTP 
     { statusCode: 403 },
   );
   assert.equal(users.get(blockedUser.email).sessions.length, 0);
+});
+
+test('login OTP rejects unknown customer emails without storing or sending an OTP', async () => {
+  const { service, redis, emails } = createHarness();
+
+  await assert.rejects(
+    service.requestLoginOtp({ email: 'unknown@example.com' }),
+    {
+      statusCode: 404,
+      message: 'No active customer account was found with this email',
+    },
+  );
+
+  assert.equal(emails.length, 0);
+  assert.equal(
+    [...redis.values.keys()].some((key) =>
+      key.startsWith('auth:login-otp:') &&
+      (key.endsWith(':otp') || key.endsWith(':attempts')),
+    ),
+    false,
+  );
 });
 
 test('expired password lockout resets the failed-attempt counter', async () => {
@@ -734,7 +791,8 @@ test('forgot password response is generic and password reset revokes every sessi
 
   assert.deepEqual(genericResponse, { status: 'accepted' });
   assert.equal(emails[0].emailType, 'otp');
-  const otp = extractOtp(emails[0]);
+  assert.equal(emails[1].emailType, 'password_reset');
+  const otp = extractOtp(emails[1]);
   assert.match(otp, /^\d{6}$/);
   await assert.rejects(
     service.resetPassword({ email: user.email, otp: '000000', newPassword: 'NewStrongPassword123' }),

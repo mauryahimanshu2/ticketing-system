@@ -1,0 +1,1820 @@
+openapi: 3.1.0
+info:
+  title: Ticketing System API
+  version: 1.0.0
+  summary: REST API for customer support ticket management
+  description: |
+    Complete contract for authentication, tickets, agents, users, categories,
+    SLA policies, audit logs, and email integration.
+
+    **Authentication:** protected application routes expect an access JWT in
+    `Authorization: Bearer <accessToken>`. Refresh tokens are sent in JSON bodies.
+
+    **Roles:** `user` is a customer, `agent` handles assigned tickets, and `admin`
+    manages the system. Each operation states its allowed roles.
+
+    **Errors:** all handled errors return `{ "error": "message" }`. A blocked ticket
+    returns HTTP 423 when a caller attempts a forbidden update.
+servers:
+  - url: http://localhost:3000
+    description: Local development
+tags:
+  - name: System
+  - name: Authentication
+  - name: Tickets
+  - name: Admin tickets
+  - name: Agents
+  - name: Users
+  - name: Categories
+  - name: SLA policies
+  - name: Audit logs
+  - name: Email
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Check API health
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: API process is available
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ok }
+
+  /api/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Start customer registration
+      description: Queues a six-digit email verification code. Only customer (`user`) accounts can self-register.
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistrationInput' }
+            example:
+              name: Alex Customer
+              email: alex@example.com
+              phone: '+919876543210'
+              password: StrongPass123!
+      responses:
+        '202':
+          description: Verification email accepted for background delivery
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueuedEmailResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/auth/verify-registration-otp:
+    post:
+      tags: [Authentication]
+      summary: Verify registration and create customer
+      operationId: verifyRegistrationOtp
+      security: []
+      requestBody: { $ref: '#/components/requestBodies/OtpInput' }
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, user]
+                properties:
+                  message: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/auth/login-password:
+    post:
+      tags: [Authentication]
+      summary: Log in with email and password
+      description: Available to verified, unblocked users, agents, and admins.
+      operationId: loginWithPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordLoginInput' }
+      responses:
+        '200': { $ref: '#/components/responses/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/auth/login-otp:
+    post:
+      tags: [Authentication]
+      summary: Request a customer login OTP
+      description: Looks up the email first and sends an OTP only for a verified, active customer account. Staff, blocked, unverified, and unknown emails are rejected without storing or sending an OTP.
+      operationId: requestLoginOtp
+      security: []
+      requestBody: { $ref: '#/components/requestBodies/EmailInput' }
+      responses:
+        '202':
+          description: Login OTP accepted for background delivery
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    type: string
+                    example: A login verification code has been queued for this customer account.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/auth/verify-login-otp:
+    post:
+      tags: [Authentication]
+      summary: Log a customer in with an OTP
+      operationId: verifyLoginOtp
+      security: []
+      requestBody: { $ref: '#/components/requestBodies/OtpInput' }
+      responses:
+        '200': { $ref: '#/components/responses/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '423': { $ref: '#/components/responses/Locked' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/auth/refresh-token:
+    post:
+      tags: [Authentication]
+      summary: Rotate a refresh token
+      description: Returns a new access/refresh token pair and invalidates the submitted refresh token.
+      operationId: refreshTokens
+      security: []
+      requestBody: { $ref: '#/components/requestBodies/RefreshTokenInput' }
+      responses:
+        '200': { $ref: '#/components/responses/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Log out the refresh-token session
+      operationId: logout
+      security: []
+      requestBody: { $ref: '#/components/requestBodies/RefreshTokenInput' }
+      responses:
+        '200': { $ref: '#/components/responses/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/auth/logout-all:
+    post:
+      tags: [Authentication]
+      summary: Log out every session for the current account
+      operationId: logoutAll
+      responses:
+        '200': { $ref: '#/components/responses/MessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/auth/forgot-password:
+    post:
+      tags: [Authentication]
+      summary: Request a customer password-reset OTP
+      description: Returns a neutral response. Self-service password reset is customer-only.
+      operationId: forgotPassword
+      security: []
+      requestBody: { $ref: '#/components/requestBodies/EmailInput' }
+      responses:
+        '202': { $ref: '#/components/responses/NeutralEmailQueued' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Reset a customer password with an OTP
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetPasswordInput' }
+      responses:
+        '200': { $ref: '#/components/responses/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/tickets:
+    get:
+      tags: [Tickets]
+      summary: List tickets visible to the current actor
+      description: "Roles: user (own tickets), agent (assigned tickets), admin (all tickets)."
+      operationId: listTickets
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/TicketStatus' }
+        - { $ref: '#/components/parameters/TicketPriority' }
+      responses:
+        '200': { $ref: '#/components/responses/TicketPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Tickets]
+      summary: Create a customer ticket
+      description: "Role: user. Category is required; priority defaults to medium."
+      operationId: createCustomerTicket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerTicketInput' }
+      responses:
+        '201':
+          description: Ticket created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ticket' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/tickets/summary:
+    get:
+      tags: [Tickets]
+      summary: Get status counts for visible tickets
+      description: "Roles: user, agent, admin. Counts follow the same visibility scope as the ticket list."
+      operationId: getTicketSummary
+      responses:
+        '200':
+          description: Ticket counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/tickets/{ticketId}:
+    get:
+      tags: [Tickets]
+      summary: Get a visible ticket with history
+      description: Customers receive public history only; agents/admins can see internal history.
+      operationId: getTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      responses:
+        '200':
+          description: Ticket, messages, and activities
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/tickets/{ticketId}/messages:
+    post:
+      tags: [Tickets]
+      summary: Reply to a ticket
+      description: "Roles: user, agent, admin. Customers cannot create internal notes. Closed or blocked tickets reject replies."
+      operationId: replyToTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TicketReplyInput' }
+      responses:
+        '201':
+          description: Reply stored and any applicable notification queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, emailStatus]
+                properties:
+                  message: { $ref: '#/components/schemas/TicketMessage' }
+                  emailStatus: { $ref: '#/components/schemas/EmailStatus' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/tickets/{ticketId}/request-information:
+    post:
+      tags: [Tickets]
+      summary: Request more information from the customer
+      description: "Roles: agent or admin. Creates a public message and queues an email."
+      operationId: requestTicketInformation
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody: { $ref: '#/components/requestBodies/InformationRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/InformationRequested' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/tickets/{ticketId}/status:
+    patch:
+      tags: [Tickets]
+      summary: Change ticket status
+      description: "Roles: user, agent, admin, subject to workflow permissions. Blocked tickets cannot be changed."
+      operationId: changeTicketStatus
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody: { $ref: '#/components/requestBodies/StatusChange' }
+      responses:
+        '200': { $ref: '#/components/responses/TicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/tickets/{ticketId}/priority:
+    patch:
+      tags: [Tickets]
+      summary: Change ticket priority
+      description: "Roles: agent or admin. Blocked tickets cannot be changed."
+      operationId: changeTicketPriority
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody: { $ref: '#/components/requestBodies/PriorityChange' }
+      responses:
+        '200': { $ref: '#/components/responses/TicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/admin/tickets:
+    get:
+      tags: [Admin tickets]
+      summary: List all tickets with admin filters
+      description: "Role: admin."
+      operationId: listAdminTickets
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/TicketStatus' }
+        - { $ref: '#/components/parameters/TicketPriority' }
+        - { $ref: '#/components/parameters/CategoryFilter' }
+        - { $ref: '#/components/parameters/AssignedToFilter' }
+        - { $ref: '#/components/parameters/Search' }
+        - { $ref: '#/components/parameters/FromDate' }
+        - { $ref: '#/components/parameters/ToDate' }
+      responses:
+        '200': { $ref: '#/components/responses/TicketPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Admin tickets]
+      summary: Create a ticket for a customer
+      description: "Role: admin. requesterId is required; category is optional."
+      operationId: createAdminTicket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminTicketInput' }
+      responses:
+        '201': { $ref: '#/components/responses/TicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/tickets/{ticketId}:
+    get:
+      tags: [Admin tickets]
+      summary: Get any ticket with full history
+      description: "Role: admin. Includes internal messages and activity."
+      operationId: getAdminTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      responses:
+        '200':
+          description: Full ticket detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/tickets/{ticketId}/assign:
+    patch:
+      tags: [Admin tickets]
+      summary: Assign an unassigned ticket
+      description: "Role: admin. Ticket must be open and unblocked; agent must be active."
+      operationId: assignTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [agentId]
+              properties:
+                agentId: { $ref: '#/components/schemas/ObjectId' }
+      responses:
+        '200': { $ref: '#/components/responses/AssignmentResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/admin/tickets/{ticketId}/reassign:
+    patch:
+      tags: [Admin tickets]
+      summary: Reassign a ticket to another agent
+      description: "Role: admin. Ticket must be open and unblocked. A reason is mandatory."
+      operationId: reassignTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [agentId, reason]
+              properties:
+                agentId: { $ref: '#/components/schemas/ObjectId' }
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200': { $ref: '#/components/responses/AssignmentResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/admin/tickets/{ticketId}/status:
+    patch:
+      tags: [Admin tickets]
+      summary: Change ticket status as admin
+      description: "Role: admin. Blocked tickets cannot be changed."
+      operationId: changeAdminTicketStatus
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody: { $ref: '#/components/requestBodies/StatusChange' }
+      responses:
+        '200': { $ref: '#/components/responses/TicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/admin/tickets/{ticketId}/priority:
+    patch:
+      tags: [Admin tickets]
+      summary: Change ticket priority as admin
+      description: "Role: admin. Blocked tickets cannot be changed."
+      operationId: changeAdminTicketPriority
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody: { $ref: '#/components/requestBodies/PriorityChange' }
+      responses:
+        '200': { $ref: '#/components/responses/TicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/admin/tickets/{ticketId}/category:
+    patch:
+      tags: [Admin tickets]
+      summary: Change or clear ticket category
+      description: "Role: admin. Send category as null to clear it. Blocked tickets cannot be changed."
+      operationId: changeTicketCategory
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [category]
+              properties:
+                category:
+                  oneOf:
+                    - { $ref: '#/components/schemas/ObjectId' }
+                    - { type: 'null' }
+      responses:
+        '200': { $ref: '#/components/responses/TicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/admin/tickets/{ticketId}/block:
+    patch:
+      tags: [Admin tickets]
+      summary: Block ticket updates
+      description: "Role: admin. A reason is required."
+      operationId: blockTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody: { $ref: '#/components/requestBodies/ReasonInput' }
+      responses:
+        '200': { $ref: '#/components/responses/TicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/tickets/{ticketId}/unblock:
+    patch:
+      tags: [Admin tickets]
+      summary: Unblock a ticket
+      description: "Role: admin. Send an empty JSON object."
+      operationId: unblockTicket
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody: { $ref: '#/components/requestBodies/EmptyObject' }
+      responses:
+        '200': { $ref: '#/components/responses/TicketResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/tickets/{ticketId}/request-information:
+    post:
+      tags: [Admin tickets]
+      summary: Request customer information as admin
+      description: "Role: admin. Alias of the protected ticket information-request operation."
+      operationId: requestTicketInformationAsAdmin
+      parameters: [{ $ref: '#/components/parameters/TicketId' }]
+      requestBody: { $ref: '#/components/requestBodies/InformationRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/InformationRequested' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /api/agents:
+    get:
+      tags: [Agents]
+      summary: List agents
+      description: "Role: admin."
+      operationId: listAgents
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Search' }
+        - { $ref: '#/components/parameters/Blocked' }
+        - { $ref: '#/components/parameters/Active' }
+      responses:
+        '200': { $ref: '#/components/responses/UserPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Agents]
+      summary: Create an agent
+      description: "Role: admin. The agent is created verified and can log in with the supplied password."
+      operationId: createAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AgentCreateInput' }
+      responses:
+        '201':
+          description: Agent created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/agents/{agentId}:
+    get:
+      tags: [Agents]
+      summary: Get an agent and ticket statistics
+      description: "Role: admin."
+      operationId: getAgent
+      parameters: [{ $ref: '#/components/parameters/AgentId' }]
+      responses:
+        '200':
+          description: Agent detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserWithTicketStats' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Agents]
+      summary: Update an agent
+      description: "Role: admin. At least one field is required. A password change revokes existing sessions."
+      operationId: updateAgent
+      parameters: [{ $ref: '#/components/parameters/AgentId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AgentUpdateInput' }
+      responses:
+        '200':
+          description: Updated agent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/agents/{agentId}/block:
+    patch:
+      tags: [Agents]
+      summary: Block an agent
+      description: "Role: admin. Revokes the agent's sessions."
+      operationId: blockAgent
+      parameters: [{ $ref: '#/components/parameters/AgentId' }]
+      requestBody: { $ref: '#/components/requestBodies/ReasonInput' }
+      responses:
+        '200': { $ref: '#/components/responses/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/agents/{agentId}/unblock:
+    patch:
+      tags: [Agents]
+      summary: Unblock an agent
+      description: "Role: admin. Send an empty JSON object."
+      operationId: unblockAgent
+      parameters: [{ $ref: '#/components/parameters/AgentId' }]
+      requestBody: { $ref: '#/components/requestBodies/EmptyObject' }
+      responses:
+        '200': { $ref: '#/components/responses/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/users:
+    get:
+      tags: [Users]
+      summary: List customer accounts
+      description: "Role: admin. Returns managed customer users, not agents/admins."
+      operationId: listUsers
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Search' }
+        - { $ref: '#/components/parameters/Blocked' }
+        - { $ref: '#/components/parameters/Active' }
+        - { $ref: '#/components/parameters/Verified' }
+      responses:
+        '200': { $ref: '#/components/responses/UserPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/users/{userId}:
+    get:
+      tags: [Users]
+      summary: Get a customer and ticket statistics
+      description: "Role: admin."
+      operationId: getUser
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      responses:
+        '200':
+          description: Customer detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserWithTicketStats' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/users/{userId}/block:
+    patch:
+      tags: [Users]
+      summary: Block a customer
+      description: "Role: admin. Revokes the customer's sessions."
+      operationId: blockUser
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      requestBody: { $ref: '#/components/requestBodies/ReasonInput' }
+      responses:
+        '200': { $ref: '#/components/responses/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/users/{userId}/unblock:
+    patch:
+      tags: [Users]
+      summary: Unblock a customer
+      description: "Role: admin. Send an empty JSON object."
+      operationId: unblockUser
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      requestBody: { $ref: '#/components/requestBodies/EmptyObject' }
+      responses:
+        '200': { $ref: '#/components/responses/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/categories/available:
+    get:
+      tags: [Categories]
+      summary: List active categories available for ticket forms
+      description: "Roles: user, agent, admin. Only active categories are returned."
+      operationId: listAvailableCategories
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Search' }
+      responses:
+        '200': { $ref: '#/components/responses/CategoryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/categories:
+    get:
+      tags: [Categories]
+      summary: List categories
+      description: "Role: admin. Also available through `/api/admin/categories`."
+      operationId: listCategories
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Search' }
+        - name: active
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200': { $ref: '#/components/responses/CategoryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Categories]
+      summary: Create a category
+      description: "Role: admin. Names are normalized to lowercase."
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryInput' }
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Category' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/categories/{categoryId}:
+    get:
+      tags: [Categories]
+      summary: Get a category
+      description: "Role: admin. Also available through `/api/admin/categories/{categoryId}`."
+      operationId: getCategory
+      parameters: [{ $ref: '#/components/parameters/CategoryId' }]
+      responses:
+        '200': { $ref: '#/components/responses/CategoryResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Categories]
+      summary: Update a category
+      description: "Role: admin. At least one field is required."
+      operationId: updateCategory
+      parameters: [{ $ref: '#/components/parameters/CategoryId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryUpdateInput' }
+      responses:
+        '200': { $ref: '#/components/responses/CategoryResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Categories]
+      summary: Delete or deactivate a category
+      description: "Role: admin. Referenced categories are deactivated instead of physically deleted."
+      operationId: deleteCategory
+      parameters: [{ $ref: '#/components/parameters/CategoryId' }]
+      responses:
+        '200':
+          description: Deletion/deactivation result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/categories/available:
+    get:
+      tags: [Categories]
+      summary: List active categories through the admin route
+      description: "Role: admin. Admin-route alias of `/api/categories/available`."
+      operationId: listAvailableCategoriesAsAdmin
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Search' }
+      responses:
+        '200': { $ref: '#/components/responses/CategoryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/categories:
+    get:
+      tags: [Categories]
+      summary: List categories through the admin route
+      description: "Role: admin. Alias of `GET /api/categories`."
+      operationId: listCategoriesAsAdmin
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Search' }
+        - name: active
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200': { $ref: '#/components/responses/CategoryPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Categories]
+      summary: Create a category through the admin route
+      description: "Role: admin. Alias of `POST /api/categories`."
+      operationId: createCategoryAsAdmin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryInput' }
+      responses:
+        '201': { $ref: '#/components/responses/CategoryResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/admin/categories/{categoryId}:
+    get:
+      tags: [Categories]
+      summary: Get a category through the admin route
+      description: "Role: admin. Alias of `GET /api/categories/{categoryId}`."
+      operationId: getCategoryAsAdmin
+      parameters: [{ $ref: '#/components/parameters/CategoryId' }]
+      responses:
+        '200': { $ref: '#/components/responses/CategoryResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Categories]
+      summary: Update a category through the admin route
+      description: "Role: admin. Alias of `PATCH /api/categories/{categoryId}`."
+      operationId: updateCategoryAsAdmin
+      parameters: [{ $ref: '#/components/parameters/CategoryId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryUpdateInput' }
+      responses:
+        '200': { $ref: '#/components/responses/CategoryResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Categories]
+      summary: Delete or deactivate a category through the admin route
+      description: "Role: admin. Alias of `DELETE /api/categories/{categoryId}`."
+      operationId: deleteCategoryAsAdmin
+      parameters: [{ $ref: '#/components/parameters/CategoryId' }]
+      responses:
+        '200': { $ref: '#/components/responses/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/sla:
+    get:
+      tags: [SLA policies]
+      summary: List SLA policies
+      description: "Role: admin."
+      operationId: listSlaPolicies
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/TicketPriority' }
+        - name: active
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200': { $ref: '#/components/responses/SlaPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [SLA policies]
+      summary: Create an SLA policy
+      description: "Role: admin. Durations are expressed in minutes."
+      operationId: createSlaPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SlaPolicyInput' }
+      responses:
+        '201':
+          description: SLA policy created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlaPolicy' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/admin/sla/{slaId}:
+    get:
+      tags: [SLA policies]
+      summary: Get an SLA policy
+      description: "Role: admin."
+      operationId: getSlaPolicy
+      parameters: [{ $ref: '#/components/parameters/SlaId' }]
+      responses:
+        '200': { $ref: '#/components/responses/SlaResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [SLA policies]
+      summary: Update an SLA policy
+      description: "Role: admin. At least one field is required."
+      operationId: updateSlaPolicy
+      parameters: [{ $ref: '#/components/parameters/SlaId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SlaPolicyUpdateInput' }
+      responses:
+        '200': { $ref: '#/components/responses/SlaResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [SLA policies]
+      summary: Delete or deactivate an SLA policy
+      description: "Role: admin. Referenced policies are deactivated instead of physically deleted."
+      operationId: deleteSlaPolicy
+      parameters: [{ $ref: '#/components/parameters/SlaId' }]
+      responses:
+        '200': { $ref: '#/components/responses/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/audit-logs:
+    get:
+      tags: [Audit logs]
+      summary: List administrative audit logs
+      description: "Role: admin."
+      operationId: listAuditLogs
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - name: targetType
+          in: query
+          schema: { type: string, maxLength: 120 }
+        - name: actorId
+          in: query
+          schema: { $ref: '#/components/schemas/ObjectId' }
+        - name: action
+          in: query
+          schema: { type: string, maxLength: 120 }
+      responses:
+        '200': { $ref: '#/components/responses/AuditPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/audit-logs/{logId}:
+    get:
+      tags: [Audit logs]
+      summary: Get an administrative audit log
+      description: "Role: admin."
+      operationId: getAuditLog
+      parameters:
+        - name: logId
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/ObjectId' }
+      responses:
+        '200':
+          description: Audit log
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditLog' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /emails:
+    post:
+      tags: [Email]
+      summary: Enqueue an outbound email
+      description: Uses the dedicated `EMAIL_API_KEY` bearer credential, not a user access JWT.
+      operationId: enqueueEmail
+      security: [{ emailApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OutboundEmailInput' }
+      responses:
+        '200':
+          description: Matching idempotent request already exists
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueuedEmailResponse' }
+        '202':
+          description: Email accepted for background delivery
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueuedEmailResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /emails/inbound:
+    post:
+      tags: [Email]
+      summary: Receive an inbound ticket reply
+      description: Webhook protected by `X-Inbound-Email-Secret`. Resolves the ticket from its unique reply address.
+      operationId: receiveInboundEmail
+      security: [{ inboundEmailSecret: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InboundEmailInput' }
+      responses:
+        '200':
+          description: Reply processed or previously processed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InboundEmailResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token returned by a login or refresh endpoint.
+    emailApiKey:
+      type: http
+      scheme: bearer
+      description: Dedicated EMAIL_API_KEY for outbound email enqueue requests.
+    inboundEmailSecret:
+      type: apiKey
+      in: header
+      name: X-Inbound-Email-Secret
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: One-based page number.
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      description: Items per page.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Search:
+      name: search
+      in: query
+      description: Case-insensitive text search, at most 120 characters.
+      schema: { type: string, maxLength: 120 }
+    TicketStatus:
+      name: status
+      in: query
+      schema: { $ref: '#/components/schemas/TicketStatus' }
+    TicketPriority:
+      name: priority
+      in: query
+      schema: { $ref: '#/components/schemas/Priority' }
+    CategoryFilter:
+      name: category
+      in: query
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    AssignedToFilter:
+      name: assignedTo
+      in: query
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    FromDate:
+      name: from
+      in: query
+      description: Inclusive lower creation-date bound.
+      schema: { type: string, format: date-time }
+    ToDate:
+      name: to
+      in: query
+      description: Inclusive upper creation-date bound.
+      schema: { type: string, format: date-time }
+    Blocked:
+      name: blocked
+      in: query
+      schema: { type: boolean }
+    Active:
+      name: active
+      in: query
+      description: Inverse of blocked. Do not submit conflicting active and blocked values.
+      schema: { type: boolean }
+    Verified:
+      name: verified
+      in: query
+      schema: { type: boolean }
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    CategoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+    SlaId:
+      name: slaId
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/ObjectId' }
+
+  requestBodies:
+    EmailInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [email]
+            properties:
+              email: { type: string, format: email, maxLength: 254 }
+    OtpInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [email, otp]
+            properties:
+              email: { type: string, format: email, maxLength: 254 }
+              otp: { type: string, pattern: '^\\d{6}$', example: '123456' }
+    RefreshTokenInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [refreshToken]
+            properties:
+              refreshToken: { type: string, minLength: 40, maxLength: 200 }
+    StatusChange:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [status]
+            properties:
+              status: { $ref: '#/components/schemas/TicketStatus' }
+    PriorityChange:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [priority]
+            properties:
+              priority: { $ref: '#/components/schemas/Priority' }
+    InformationRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [message]
+            properties:
+              message: { type: string, minLength: 1, maxLength: 20000 }
+    ReasonInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [reason]
+            properties:
+              reason: { type: string, minLength: 1, maxLength: 500 }
+    EmptyObject:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            maxProperties: 0
+
+  responses:
+    BadRequest:
+      description: Request validation failed
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Credential is missing or invalid
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Authenticated actor is not allowed to perform this operation
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Requested resource was not found or is outside the actor's visibility scope
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: Request conflicts with current resource state or unique data
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Locked:
+      description: Account or ticket is locked/blocked for this operation
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: Rate or OTP-attempt limit exceeded
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ServiceUnavailable:
+      description: A required service or configuration is unavailable
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    AuthSuccess:
+      description: Authentication succeeded
+      content: { application/json: { schema: { $ref: '#/components/schemas/AuthResult' } } }
+    MessageResponse:
+      description: Operation completed
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message]
+            properties: { message: { type: string } }
+    NeutralEmailQueued:
+      description: Request accepted without revealing whether the account exists
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message]
+            properties: { message: { type: string } }
+    TicketResponse:
+      description: Ticket state after the operation
+      content: { application/json: { schema: { $ref: '#/components/schemas/Ticket' } } }
+    TicketPage:
+      description: Paginated tickets
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: '#/components/schemas/Pagination' }
+              - type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Ticket' } }
+    AssignmentResponse:
+      description: Assignment changed and notifications processed
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [ticket, notificationsQueued, notificationCount]
+            properties:
+              ticket: { $ref: '#/components/schemas/Ticket' }
+              notificationsQueued: { type: boolean }
+              notificationCount: { type: integer, minimum: 0 }
+    InformationRequested:
+      description: Information request stored and notification processed
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [ticket, message, emailStatus]
+            properties:
+              ticket: { $ref: '#/components/schemas/Ticket' }
+              message: { $ref: '#/components/schemas/TicketMessage' }
+              emailStatus: { $ref: '#/components/schemas/EmailStatus' }
+    UserResponse:
+      description: User state after the operation
+      content: { application/json: { schema: { $ref: '#/components/schemas/User' } } }
+    UserPage:
+      description: Paginated users
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: '#/components/schemas/Pagination' }
+              - type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/UserWithTicketStats' } }
+    CategoryResponse:
+      description: Category
+      content: { application/json: { schema: { $ref: '#/components/schemas/Category' } } }
+    CategoryPage:
+      description: Paginated categories
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: '#/components/schemas/Pagination' }
+              - type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Category' } }
+    SlaResponse:
+      description: SLA policy
+      content: { application/json: { schema: { $ref: '#/components/schemas/SlaPolicy' } } }
+    SlaPage:
+      description: Paginated SLA policies
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: '#/components/schemas/Pagination' }
+              - type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/SlaPolicy' } }
+    AuditPage:
+      description: Paginated audit logs
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: '#/components/schemas/Pagination' }
+              - type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AuditLog' } }
+
+  schemas:
+    ObjectId:
+      type: string
+      pattern: '^[0-9a-fA-F]{24}$'
+      example: 507f1f77bcf86cd799439011
+    DateTime:
+      type: string
+      format: date-time
+    Priority:
+      type: string
+      enum: [low, medium, high, urgent]
+    TicketStatus:
+      type: string
+      enum: [open, in_progress, pending, resolved, closed]
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error: { type: string, example: A valid ticketId is required }
+    Pagination:
+      type: object
+      required: [items, page, limit, total, pages]
+      properties:
+        items: { type: array, items: {} }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        pages: { type: integer, minimum: 0 }
+    UserSummary:
+      type: object
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [user, agent, admin] }
+        isBlocked: { type: boolean }
+    User:
+      type: object
+      required: [_id, name, email, role, isVerified, isBlocked, createdAt, updatedAt]
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        name: { type: string, maxLength: 120 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, example: '+919876543210' }
+        role: { type: string, enum: [user, agent, admin] }
+        isVerified: { type: boolean }
+        isBlocked: { type: boolean }
+        blockedAt:
+          oneOf: [{ $ref: '#/components/schemas/DateTime' }, { type: 'null' }]
+        blockReason:
+          oneOf: [{ type: string, maxLength: 500 }, { type: 'null' }]
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+        updatedAt: { $ref: '#/components/schemas/DateTime' }
+    UserWithTicketStats:
+      allOf:
+        - { $ref: '#/components/schemas/User' }
+        - type: object
+          properties:
+            ticketStats:
+              type: object
+              required: [total, open]
+              properties:
+                total: { type: integer, minimum: 0 }
+                open: { type: integer, minimum: 0 }
+    RegistrationInput:
+      type: object
+      additionalProperties: false
+      required: [name, email, phone, password]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, pattern: '^\\+[1-9]\\d{6,14}$' }
+        password: { type: string, format: password, minLength: 8, maxLength: 72, writeOnly: true }
+    PasswordLoginInput:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, format: password, minLength: 1, maxLength: 72, writeOnly: true }
+    ResetPasswordInput:
+      type: object
+      additionalProperties: false
+      required: [email, otp, newPassword]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        otp: { type: string, pattern: '^\\d{6}$' }
+        newPassword: { type: string, format: password, minLength: 8, maxLength: 72, writeOnly: true }
+    AuthResult:
+      type: object
+      required: [accessToken, refreshToken, tokenType, refreshExpiresAt, user]
+      properties:
+        accessToken: { type: string, writeOnly: true }
+        refreshToken: { type: string, writeOnly: true }
+        tokenType: { type: string, const: Bearer }
+        refreshExpiresAt: { $ref: '#/components/schemas/DateTime' }
+        user: { $ref: '#/components/schemas/User' }
+    CustomerTicketInput:
+      type: object
+      additionalProperties: false
+      required: [subject, description, category]
+      properties:
+        subject: { type: string, minLength: 1, maxLength: 500 }
+        description: { type: string, minLength: 1, maxLength: 20000 }
+        category: { $ref: '#/components/schemas/ObjectId' }
+    AdminTicketInput:
+      type: object
+      additionalProperties: false
+      required: [subject, description, requesterId]
+      properties:
+        subject: { type: string, minLength: 1, maxLength: 500 }
+        description: { type: string, minLength: 1, maxLength: 20000 }
+        requesterId: { $ref: '#/components/schemas/ObjectId' }
+        category: { $ref: '#/components/schemas/ObjectId' }
+        priority: { $ref: '#/components/schemas/Priority' }
+    SlaSnapshot:
+      type: object
+      properties:
+        policyId:
+          oneOf: [{ $ref: '#/components/schemas/ObjectId' }, { type: 'null' }]
+        policyName:
+          oneOf: [{ type: string }, { type: 'null' }]
+        priority: { $ref: '#/components/schemas/Priority' }
+        firstResponseMinutes: { type: integer, minimum: 0 }
+        resolutionMinutes: { type: integer, minimum: 0 }
+        appliedAt: { $ref: '#/components/schemas/DateTime' }
+    Ticket:
+      type: object
+      required: [_id, ticketNumber, subject, description, requesterId, requesterEmail, priority, status, isBlocked, createdAt, updatedAt]
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        ticketNumber: { type: string, example: TKT-ABC123 }
+        subject: { type: string, maxLength: 500 }
+        description: { type: string, maxLength: 20000 }
+        requesterId:
+          oneOf: [{ $ref: '#/components/schemas/ObjectId' }, { $ref: '#/components/schemas/UserSummary' }]
+        requesterEmail: { type: string, format: email }
+        assignedTo:
+          oneOf:
+            - { $ref: '#/components/schemas/ObjectId' }
+            - { $ref: '#/components/schemas/UserSummary' }
+            - { type: 'null' }
+        assignedBy:
+          oneOf:
+            - { $ref: '#/components/schemas/ObjectId' }
+            - { $ref: '#/components/schemas/UserSummary' }
+            - { type: 'null' }
+        assignedAt:
+          oneOf: [{ $ref: '#/components/schemas/DateTime' }, { type: 'null' }]
+        category:
+          oneOf:
+            - { $ref: '#/components/schemas/ObjectId' }
+            - { $ref: '#/components/schemas/Category' }
+            - { type: 'null' }
+        priority: { $ref: '#/components/schemas/Priority' }
+        status: { $ref: '#/components/schemas/TicketStatus' }
+        emailReplyAddress: { type: string, format: email }
+        lastMessageAt: { $ref: '#/components/schemas/DateTime' }
+        resolvedAt: { $ref: '#/components/schemas/DateTime' }
+        closedAt: { $ref: '#/components/schemas/DateTime' }
+        isBlocked: { type: boolean }
+        blockedAt:
+          oneOf: [{ $ref: '#/components/schemas/DateTime' }, { type: 'null' }]
+        blockReason:
+          oneOf: [{ type: string, maxLength: 500 }, { type: 'null' }]
+        slaSnapshot: { $ref: '#/components/schemas/SlaSnapshot' }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+        updatedAt: { $ref: '#/components/schemas/DateTime' }
+    TicketReplyInput:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 20000 }
+        type:
+          type: string
+          enum: [public, internal]
+          default: public
+          description: Internal messages are limited to agents/admins and are never emailed to customers.
+    TicketMessage:
+      type: object
+      required: [_id, ticketId, senderEmail, senderRole, type, body, source, createdAt]
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        ticketId: { $ref: '#/components/schemas/ObjectId' }
+        senderId:
+          oneOf:
+            - { $ref: '#/components/schemas/ObjectId' }
+            - { $ref: '#/components/schemas/UserSummary' }
+            - { type: 'null' }
+        senderEmail: { type: string, format: email }
+        senderRole: { type: string, enum: [user, agent, admin, external, system] }
+        type: { type: string, enum: [public, internal] }
+        body: { type: string }
+        source: { type: string, enum: [web, email] }
+        emailMessageId: { type: string }
+        emailInReplyTo: { type: string }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+    TicketActivity:
+      type: object
+      required: [_id, ticketId, action, createdAt]
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        ticketId: { $ref: '#/components/schemas/ObjectId' }
+        actorId:
+          oneOf:
+            - { $ref: '#/components/schemas/ObjectId' }
+            - { $ref: '#/components/schemas/UserSummary' }
+            - { type: 'null' }
+        action:
+          type: string
+          enum: [ticket_created, status_changed, assignment_changed, priority_changed, category_changed, customer_reply, agent_reply, information_requested, resolved, closed, reopened, ticket_blocked, ticket_unblocked]
+        oldValue: {}
+        newValue: {}
+        metadata: { type: object, additionalProperties: true }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+    TicketDetail:
+      allOf:
+        - { $ref: '#/components/schemas/Ticket' }
+        - type: object
+          required: [messages, activities]
+          properties:
+            messages: { type: array, items: { $ref: '#/components/schemas/TicketMessage' } }
+            activities: { type: array, items: { $ref: '#/components/schemas/TicketActivity' } }
+    TicketSummary:
+      type: object
+      required: [open, pending, in_progress, resolved, closed, reopened, total]
+      properties:
+        open: { type: integer, minimum: 0 }
+        pending: { type: integer, minimum: 0 }
+        in_progress: { type: integer, minimum: 0 }
+        resolved: { type: integer, minimum: 0 }
+        closed: { type: integer, minimum: 0 }
+        reopened: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0 }
+    EmailStatus:
+      type: object
+      additionalProperties: true
+      description: Notification queue result; exact fields depend on whether an email was applicable and queued.
+    AgentCreateInput:
+      allOf:
+        - { $ref: '#/components/schemas/RegistrationInput' }
+    AgentUpdateInput:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, pattern: '^\\+[1-9]\\d{6,14}$' }
+        password: { type: string, format: password, minLength: 8, maxLength: 72, writeOnly: true }
+    CategoryInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 2000 }
+        isActive: { type: boolean, default: true }
+    CategoryUpdateInput:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 2000 }
+        isActive: { type: boolean }
+    Category:
+      type: object
+      required: [_id, name, isActive, createdAt, updatedAt]
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        name: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 2000 }
+        isActive: { type: boolean }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+        updatedAt: { $ref: '#/components/schemas/DateTime' }
+    SlaPolicyInput:
+      type: object
+      additionalProperties: false
+      required: [name, priority, firstResponseMinutes, resolutionMinutes]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        priority: { $ref: '#/components/schemas/Priority' }
+        firstResponseMinutes: { type: integer, minimum: 1, maximum: 525600 }
+        resolutionMinutes: { type: integer, minimum: 1, maximum: 525600 }
+        isActive: { type: boolean, default: true }
+    SlaPolicyUpdateInput:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        priority: { $ref: '#/components/schemas/Priority' }
+        firstResponseMinutes: { type: integer, minimum: 1, maximum: 525600 }
+        resolutionMinutes: { type: integer, minimum: 1, maximum: 525600 }
+        isActive: { type: boolean }
+    SlaPolicy:
+      type: object
+      required: [_id, name, priority, firstResponseMinutes, resolutionMinutes, isActive, createdAt, updatedAt]
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        name: { type: string, maxLength: 120 }
+        priority: { $ref: '#/components/schemas/Priority' }
+        firstResponseMinutes: { type: integer, minimum: 1 }
+        resolutionMinutes: { type: integer, minimum: 1 }
+        isActive: { type: boolean }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+        updatedAt: { $ref: '#/components/schemas/DateTime' }
+    AuditLog:
+      type: object
+      required: [_id, actorId, actorRole, action, targetType, targetId, createdAt]
+      properties:
+        _id: { $ref: '#/components/schemas/ObjectId' }
+        actorId:
+          oneOf: [{ $ref: '#/components/schemas/ObjectId' }, { $ref: '#/components/schemas/UserSummary' }]
+        actorRole: { type: string, const: admin }
+        action: { type: string, maxLength: 120 }
+        targetType: { type: string, maxLength: 80 }
+        targetId: { $ref: '#/components/schemas/ObjectId' }
+        details: { type: object, additionalProperties: true }
+        ipAddress: { type: string, maxLength: 64 }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+    QueuedEmailResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, enum: [queued, duplicate, accepted] }
+        jobId: { type: string }
+        message: { type: string }
+    OutboundEmailInput:
+      type: object
+      required: [recipient, subject, emailType]
+      properties:
+        recipient: { type: string, format: email }
+        subject: { type: string, minLength: 1, maxLength: 500 }
+        text: { type: string, maxLength: 1000000 }
+        html: { type: string, maxLength: 1000000 }
+        replyTo: { type: string, format: email }
+        emailType:
+          type: string
+          enum: [otp, welcome, ticket_created, ticket_reply, ticket_assigned, ticket_status_update, ticket_information_request, ticket_notification, password_reset]
+        ticketId: { $ref: '#/components/schemas/ObjectId' }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 200 }
+        ticketMessageType:
+          type: string
+          enum: [public]
+          description: Required and must be public when emailType is ticket_reply.
+      anyOf:
+        - required: [text]
+        - required: [html]
+    InboundEmailInput:
+      type: object
+      additionalProperties: false
+      required: [recipient, sender, messageId, body]
+      properties:
+        recipient: { type: string, format: email, maxLength: 254 }
+        sender: { type: string, format: email, maxLength: 254 }
+        messageId: { type: string, minLength: 1, maxLength: 500 }
+        inReplyTo: { type: string, maxLength: 500 }
+        body: { type: string, minLength: 1, maxLength: 20000 }
+    InboundEmailResult:
+      type: object
+      required: [status, ticketId]
+      properties:
+        status: { type: string, enum: [processed, duplicate] }
+        ticketId: { $ref: '#/components/schemas/ObjectId' }
+        messageId: { $ref: '#/components/schemas/ObjectId' }
+
+security:
+  - bearerAuth: []

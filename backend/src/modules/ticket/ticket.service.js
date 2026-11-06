@@ -37,7 +37,7 @@ function ticketScope(role, userId) {
 function ticketUpdateScope(actor) {
   return {
     ...ticketScope(actor.role, actor.userId),
-    ...(actor.role !== 'admin' ? { isBlocked: { $ne: true } } : {}),
+    isBlocked: { $ne: true },
   };
 }
 
@@ -54,7 +54,7 @@ function recordTicketAdminAction(actor, ticketId, action, details = {}) {
 
 function assertCanModify(ticket, actor) {
   if (!ticket) throw httpError('Ticket not found', 404);
-  if (ticket.isBlocked && actor.role !== 'admin') throw httpError('Ticket is blocked', 423);
+  if (ticket.isBlocked) throw httpError('Ticket is blocked; unblock it before making changes', 423);
 }
 
 function assertRole(actor) {
@@ -126,6 +126,11 @@ export async function listTickets(query, actor) {
     page,
     limit,
   });
+}
+
+export async function getTicketSummary(actor) {
+  assertRole(actor);
+  return repository.getTicketCounts(ticketScope(actor.role, actor.userId));
 }
 
 export async function getTicket(ticketId, actor) {
@@ -340,12 +345,14 @@ export async function changeTicketPriority(ticketId, input, actor) {
 export async function changeTicketCategory(ticketId, input, actor) {
   requireAdmin(actor);
   const ticket = await getAuthorizedTicket(ticketId, actor);
+  assertCanModify(ticket, actor);
   const categoryId = validateCategoryChange(input);
   if (categoryId) {
     const category = await categoryRepository.findCategoryById(categoryId);
     if (!category || !category.isActive) throw httpError('An active category is required', 400);
   }
-  const updated = await repository.updateTicket(ticket._id, { category: categoryId });
+  const updated = await repository.updateTicket(ticket._id, { category: categoryId }, { isBlocked: { $ne: true } });
+  if (!updated) throw httpError('Ticket changed or is blocked; reload and retry', 409);
   await repository.createActivity({
     ticketId: ticket._id,
     actorId: actor.userId,
@@ -369,6 +376,10 @@ export async function assignTicket(ticketId, input, actor, { reassign = false } 
     userRepository.findManagedUser(agentId, 'agent'),
   ]);
   if (!ticket) throw httpError('Ticket not found', 404);
+  if (ticket.isBlocked) throw httpError('Blocked tickets must be unblocked before assignment or reassignment', 423);
+  if (ticket.status === 'closed') {
+    throw httpError('Closed tickets must be reopened before assignment or reassignment', 409);
+  }
   if (!agent || !agent.isVerified) throw httpError('A valid verified support agent is required', 400);
   if (agent.isBlocked) throw httpError('Blocked agents cannot be assigned tickets', 409);
   if (reassign && !ticket.assignedTo) throw httpError('Ticket is not currently assigned; use assign', 409);

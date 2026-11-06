@@ -1,0 +1,21 @@
+.ticket-modal select {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 6px;
+  padding: 0 14px;
+  border: 1px solid #dce6ec;
+  border-radius: 10px;
+  outline: 0;
+  color: #405868;
+  background: #fff;
+  font-size: 15px;
+}
+
+.ticket-modal select:focus {
+  border-color: #168bd5;
+}
+
+.ticket-modal select:disabled {
+  color: #8b9ba7;
+  background: #f4f7f9;
+}

@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", sans-serif;
+  --font-display: "Manrope", sans-serif;
+  --color-ink-950: #090a10;
+  --color-ink-900: #0e1018;
+  --color-ink-800: #151722;
+  --color-brand-400: #9b8cff;
+  --color-brand-500: #806cf0;
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; background: #090a10; }
+body { margin: 0; min-width: 320px; min-height: 100vh; font-family: "DM Sans", sans-serif; font-size: 16px; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid rgba(155, 140, 255, .28); outline-offset: 2px; }
+#root { min-height: 100vh; }
+
+.session-loader {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  color: #607888;
+  background: #f4f7fb;
+  font-family: "DM Sans", sans-serif;
+}
+
+.session-loader span {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #dbe9f2;
+  border-top-color: #0878ce;
+  border-radius: 50%;
+  animation: session-spin .7s linear infinite;
+}
+
+.session-loader p { margin: 0; font-size: 13px; }
+
+@keyframes session-spin { to { transform: rotate(360deg); } }

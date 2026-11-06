@@ -31,12 +31,17 @@ export function validateCreateTicket(input, role) {
   const priority = input.priority === undefined ? 'medium' : input.priority;
   if (!ticketPriorities.has(priority)) throw httpError('A valid priority is required', 400);
 
+  const categoryId = input.category === undefined ? null : validateObjectId(input.category, 'category');
+  if (role === 'user' && !categoryId) {
+    throw httpError('Category is required for customer tickets', 400);
+  }
+
   return {
     subject,
     description,
     priority,
     requesterId: role === 'admin' ? validateObjectId(input.requesterId, 'requesterId') : undefined,
-    categoryId: input.category === undefined ? null : validateObjectId(input.category, 'category'),
+    categoryId,
   };
 }
 
