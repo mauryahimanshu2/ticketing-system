@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Clock3, Send, UserRound } from 'lucide-react'
+import { ArrowLeft, Clock3, MailQuestion, Send, UserRound, X } from 'lucide-react'
 import { clearAdminTicket, fetchAdminAgents, fetchAdminCategories, fetchAdminTicket } from '../../features/admin/adminSlice.js'
 import { adminService } from '../../services/admin.service.js'
 import { LoadingRows, StatusBadge } from '../../components/dashboard/TicketUi.jsx'
@@ -24,6 +24,8 @@ function AdminTicketDetailPage() {
   const { ticket, detailStatus, agents, categories, error } = useSelector((state) => state.admin)
   const [reply, setReply] = useState('')
   const [replyType, setReplyType] = useState('public')
+  const [informationDialogOpen, setInformationDialogOpen] = useState(false)
+  const [informationMessage, setInformationMessage] = useState('')
   const [detailsDraft, setDetailsDraft] = useState({ ticketId: '', status: '', priority: '', category: '' })
   const [selectedAgent, setSelectedAgent] = useState('')
   const [reason, setReason] = useState('')
@@ -102,6 +104,20 @@ function AdminTicketDetailPage() {
     setReply('')
   }
 
+  async function requestInformation(event) {
+    event.preventDefault()
+    const value = informationMessage.trim()
+    if (!value) return
+    const succeeded = await run(
+      () => adminService.requestInformation(ticketId, value),
+      'Information request sent to the customer',
+    )
+    if (succeeded) {
+      setInformationDialogOpen(false)
+      setInformationMessage('')
+    }
+  }
+
   async function blockTicket(event) {
     event.preventDefault()
     const value = blockReason.trim()
@@ -119,7 +135,7 @@ function AdminTicketDetailPage() {
   return <main className="dashboard-content"><button className="back-link" onClick={() => navigate('/admin/tickets')}><ArrowLeft size={16} />Back to all tickets</button>
     <section className="ticket-detail-head"><div><span>{ticket.ticketNumber}</span><h1>{ticket.subject}</h1><p>{formatPersonName(ticket.requesterId?.name, 'Customer')} · {ticket.requesterEmail}</p></div><StatusBadge status={ticket.status} /></section>
     {feedback && <div className="success-banner">{feedback}</div>}{(actionError || error) && <div className="form-alert">{actionError || error}</div>}
-    <div className="admin-detail-grid"><section className="content-panel conversation"><div className="panel-title"><div><h2>Conversation & activity</h2><p>Public messages, internal notes and ticket events</p></div></div><div className="timeline">{timeline.map((item) => <AdminTimelineItem key={`${item.kind}-${item._id}`} item={item} />)}</div>
+    <div className="admin-detail-grid"><section className="content-panel conversation"><div className="panel-title conversation-heading"><div><h2>Conversation & activity</h2><p>Public messages, internal notes and ticket events</p></div><button className="request-information-trigger" type="button" disabled={busy || ticket.isBlocked || !ticket.assignedTo || ['resolved', 'closed'].includes(ticket.status)} onClick={() => setInformationDialogOpen(true)} title={!ticket.assignedTo ? 'Assign the ticket before requesting information' : ['resolved', 'closed'].includes(ticket.status) ? 'Reopen the ticket before requesting information' : ticket.isBlocked ? 'Unblock the ticket before requesting information' : 'Ask the customer for more information'}><MailQuestion size={16} />Request information</button></div><div className="timeline">{timeline.map((item) => <AdminTimelineItem key={`${item.kind}-${item._id}`} item={item} />)}</div>
       {!ticket.isBlocked && <form className="reply-composer" onSubmit={sendReply}><div><button className={`reply-mode-button ${replyType === 'public' ? 'active' : ''}`} type="button" onClick={() => setReplyType('public')}>Public</button><button className={`reply-mode-button ${replyType === 'internal' ? 'active' : ''}`} type="button" onClick={() => setReplyType('internal')}>Note</button><span>{replyType === 'internal' ? 'Internal note' : 'Customer reply'}</span></div><textarea rows="5" maxLength="20000" value={reply} placeholder={replyType === 'internal' ? 'Write a note visible only to support staff...' : 'Write a reply to the customer...'} onChange={(event) => setReply(event.target.value)} /><footer><small>{reply.length}/20000</small><button disabled={busy || !reply.trim()}><Send size={14} />Send</button></footer></form>}
     </section><aside className="content-panel metadata"><h2>Ticket controls</h2><div className="control-stack">
       {ticket.isBlocked && <div className="assignment-lock-note">This ticket is blocked. <strong>Unblock the ticket</strong> before changing Status, Priority, or Category.</div>}
@@ -139,6 +155,7 @@ function AdminTicketDetailPage() {
       <small>Created {formatDate(ticket.createdAt)}</small><small>Last updated {formatDate(ticket.updatedAt)}</small>
     </div></aside></div>
     {blockDialogOpen && <div className="modal-backdrop"><form className="simple-modal" onSubmit={blockTicket}><h2>Block ticket</h2><p className="dialog-copy">Enter a reason for blocking this ticket.</p><label>Reason<textarea required autoFocus maxLength="500" rows="4" value={blockReason} onChange={(event) => setBlockReason(event.target.value)} placeholder="Why is this ticket being blocked?" /></label><div className="modal-actions"><button type="button" onClick={() => { setBlockDialogOpen(false); setBlockReason('') }}>Cancel</button><button disabled={busy || !blockReason.trim()}>{busy ? 'Blocking...' : 'Block ticket'}</button></div></form></div>}
+    {informationDialogOpen && <div className="modal-backdrop" role="presentation"><form className="information-request-modal" role="dialog" aria-modal="true" aria-labelledby="admin-information-title" onSubmit={requestInformation}><header><div><span>Customer follow-up</span><h2 id="admin-information-title">Request more information</h2></div><button type="button" aria-label="Close request information dialog" onClick={() => { setInformationDialogOpen(false); setInformationMessage('') }}><X size={19} /></button></header><p className="information-request-copy">Write exactly what you need from the customer. They will receive a reply-enabled email, and this ticket will move to <strong>Pending</strong>.</p><label htmlFor="admin-information-message">Message to customer</label><textarea id="admin-information-message" required autoFocus rows="6" maxLength="20000" value={informationMessage} onChange={(event) => setInformationMessage(event.target.value)} placeholder="For example: Please share the order number and a screenshot of the error." /><div className="information-request-meta"><small>{informationMessage.length}/20000</small><span>The customer's email reply will appear in this conversation.</span></div><div className="modal-actions"><button type="button" onClick={() => { setInformationDialogOpen(false); setInformationMessage('') }}>Cancel</button><button disabled={busy || !informationMessage.trim()}>{busy ? 'Sending...' : 'Send request'}</button></div></form></div>}
   </main>
 }
 

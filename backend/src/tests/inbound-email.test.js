@@ -65,6 +65,10 @@ test('inbound customer email becomes a public ticket reply and notifies the agen
   assert.equal(repository.calls.messages[0].senderRole, 'user');
   assert.equal(repository.calls.updates[0].updates.status, 'in_progress');
   assert.equal(repository.calls.activities[0].action, 'customer_reply');
+  assert.equal(repository.calls.activities[0].oldValue, 'pending');
+  assert.equal(repository.calls.activities[0].newValue, 'in_progress');
+  assert.equal(repository.calls.activities[0].metadata.messageId, '000000000000000000000083');
+  assert.equal(repository.calls.activities[0].metadata.source, 'email');
   assert.equal(notifications.length, 1);
 });
 

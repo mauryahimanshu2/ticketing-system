@@ -23,6 +23,7 @@ app.use('/api/tickets', ticketRouter);
 app.use('/api/agents', agentRouter);
 app.use('/api/categories', categoryRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/emails', emailRouter);
 app.use('/emails', emailRouter);
 
 export default app;

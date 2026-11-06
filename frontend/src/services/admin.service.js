@@ -23,6 +23,9 @@ export const adminService = {
   reply(id, body, type) {
     return apiRequest(`/tickets/${id}/messages`, { method: 'POST', data: { body, type } })
   },
+  requestInformation(id, message) {
+    return apiRequest(`/admin/tickets/${id}/request-information`, { method: 'POST', data: { message } })
+  },
   setAccountBlocked(kind, id, blocked, reason) {
     const root = kind === 'agent' ? '/agents' : '/admin/users'
     return apiRequest(`${root}/${id}/${blocked ? 'block' : 'unblock'}`, {

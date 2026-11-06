@@ -30,17 +30,22 @@ can be mapped to one ticket. The sender address must match the ticket requester.
 
 ## Apps Script configuration
 
-Copy the latest `google-apps-script.gs` into the existing Apps Script project. Add
+Copy the latest `code.gs` into the existing Apps Script project. Add
 these Script properties:
 
 - `SUPPORT_EMAIL`: same value as the backend.
 - `INBOUND_EMAIL_SECRET`: same value as the backend.
-- `INBOUND_EMAIL_URL`: public HTTPS URL ending in `/emails/inbound`.
+- `INBOUND_EMAIL_URL`: public HTTPS URL ending in `/emails/inbound` (the
+  `/api/emails/inbound` alias is also supported).
 
-Create a time-driven trigger for `processInboundReplies` and run it every one to
-five minutes. The script reads unread text replies, removes commonly quoted email
-content, and sends the reply to the backend. Successful requests and permanent
-4xx rejections are marked read; 5xx/network failures remain unread for retry.
+Run `setupInboundReplyTrigger` once from the Apps Script editor and approve the
+Gmail and external-request permissions. It replaces any existing inbound trigger
+with a one-minute time-driven trigger for `processInboundReplies`. The script reads
+unread text replies, removes commonly quoted email content, and sends the reply to
+the backend. Only successful 2xx requests are
+marked read. Rejected and failed requests remain unread for retry, and the Apps
+Script execution log includes the backend response so customer replies are not
+silently discarded.
 
 ## Processing rules
 

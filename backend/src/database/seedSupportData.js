@@ -6,7 +6,7 @@ import Category from '../modules/category/category.model.js';
 import User from '../modules/user/user.model.js';
 
 const defaultCategories = [
-  { name: 'account access', description: 'Sign-in, verification, and account access.' },
+   
   { name: 'billing', description: 'Payments, invoices, and billing questions.' },
   { name: 'bug report', description: 'Report unexpected behavior or software defects.' },
   { name: 'feature request', description: 'Suggest product improvements or new features.' },

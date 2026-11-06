@@ -19,6 +19,9 @@ export const ticketService = {
   reply(ticketId, body, type = 'public') {
     return apiRequest(`/tickets/${ticketId}/messages`, { method: 'POST', data: { body, type } })
   },
+  requestInformation(ticketId, message) {
+    return apiRequest(`/tickets/${ticketId}/request-information`, { method: 'POST', data: { message } })
+  },
   changeStatus(ticketId, status) {
     return apiRequest(`/tickets/${ticketId}/status`, { method: 'PATCH', data: { status } })
   },

@@ -315,6 +315,10 @@ test('email endpoint enforces configuration and API key authentication', async (
       body: {},
       headers: { 'x-inbound-email-secret': 'inbound-test-secret-at-least-32-bytes' },
     })).status, 400);
+    assert.equal((await request('POST', '/api/emails/inbound', {
+      body: {},
+      headers: { 'x-inbound-email-secret': 'inbound-test-secret-at-least-32-bytes' },
+    })).status, 400);
   } finally {
     if (originalApiKey === undefined) delete process.env.EMAIL_API_KEY;
     else process.env.EMAIL_API_KEY = originalApiKey;

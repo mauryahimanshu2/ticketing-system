@@ -51,6 +51,8 @@ export function createInboundEmailService({
       ticketId: ticket._id,
       actorId: ticket.requesterId?._id || ticket.requesterId,
       action: 'customer_reply',
+      oldValue: ticket.status,
+      newValue: nextStatus,
       metadata: { messageId: message._id, type: 'public', source: 'email' },
     });
 

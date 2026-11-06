@@ -63,6 +63,19 @@ function doPost(event) {
   }
 }
 
+function setupInboundReplyTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === 'processInboundReplies') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  ScriptApp.newTrigger('processInboundReplies')
+    .timeBased()
+    .everyMinutes(1)
+    .create();
+}
+
 function processInboundReplies() {
   var properties = PropertiesService.getScriptProperties();
   var inboundUrl = String(properties.getProperty('INBOUND_EMAIL_URL') || '').trim();
@@ -83,10 +96,9 @@ function processInboundReplies() {
     thread.getMessages().forEach(function (message) {
       if (!message.isUnread()) return;
 
-      var recipient = extractEmailAddress(message.getTo());
+      var recipient = findTicketReplyAddress(message, replyPrefix, replyDomain);
       var sender = extractEmailAddress(message.getFrom());
-      var isTicketReply = recipient.indexOf(replyPrefix) === 0 && recipient.endsWith(replyDomain);
-      if (!isTicketReply || !sender || sender === supportEmail) return;
+      if (!recipient || !sender || sender === supportEmail) return;
 
       try {
         var response = UrlFetchApp.fetch(inboundUrl, {
@@ -104,16 +116,39 @@ function processInboundReplies() {
         });
 
         var statusCode = response.getResponseCode();
-        if (statusCode < 500) {
+        if (statusCode >= 200 && statusCode < 300) {
           message.markRead();
         } else {
-          console.error('Inbound reply backend returned ' + statusCode);
+          console.error(
+            'Inbound reply backend returned ' + statusCode + ': ' +
+            response.getContentText().slice(0, 500)
+          );
         }
       } catch (error) {
         console.error('Inbound reply delivery failed');
       }
     });
   });
+}
+
+function findTicketReplyAddress(message, replyPrefix, replyDomain) {
+  var candidates = [
+    message.getTo(),
+    message.getCc(),
+    message.getHeader('Delivered-To'),
+    message.getHeader('X-Original-To')
+  ];
+
+  for (var index = 0; index < candidates.length; index += 1) {
+    var values = String(candidates[index] || '').split(',');
+    for (var valueIndex = 0; valueIndex < values.length; valueIndex += 1) {
+      var address = extractEmailAddress(values[valueIndex]);
+      if (address.indexOf(replyPrefix) === 0 && address.endsWith(replyDomain)) {
+        return address;
+      }
+    }
+  }
+  return '';
 }
 
 function extractEmailAddress(value) {
